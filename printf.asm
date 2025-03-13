@@ -120,7 +120,8 @@ MyPrintfReal:
     add rax, rbx                                ; RAX = RAX * 9
     pop rbx
 
-    add rax, .JumpTable
+    add rax, 0x0000007B
+;   add rax, .JumpTable
     jmp rax
 
 .InvalidArgument:
