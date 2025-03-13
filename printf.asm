@@ -7,7 +7,10 @@ STDOUT          equ 0x1
 END_SYMBOL      equ 0x0
 ARG_SYMBOL      equ '%'
 JUMP_TABLE_FIRST_SYM equ 'b'
-%define JUMP_TABLE_LEN  'x'-'b' + 1
+%define JUMP_TABLE_LEN_FROM_D_TO_N  'n'-'d' - 1
+%define JUMP_TABLE_LEN_FROM_N_TO_O  'o'-'n' - 1
+%define JUMP_TABLE_LEN_FROM_O_TO_S  's'-'o' - 1
+%define JUMP_TABLE_LEN_FROM_S_TO_X  'x'-'s' - 1
 
 DONE_RESULT      equ 0x0
 INVALID_ARGUMENT equ 0x1
@@ -95,6 +98,7 @@ MyPrintfReal:
     cmp byte [rsi], ARG_SYMBOL
     je .PrintArgument                           ; Check if an argument is needed
 
+.Print:
     syscall                                     ; Print symbol
 
     inc rsi                                     ; RSI is the pointer of the next symbol of the string
@@ -111,6 +115,8 @@ MyPrintfReal:
 
     xor rax, rax
     mov al, byte [rsi]                          ; Move char to RAX
+    cmp rax, ARG_SYMBOL
+    je .Print
     sub rax, JUMP_TABLE_FIRST_SYM
 
     push rbx
@@ -120,8 +126,8 @@ MyPrintfReal:
     add rax, rbx                                ; RAX = RAX * 9
     pop rbx
 
-    add rax, 0x0000007B
-;   add rax, .JumpTable
+;    add rax, 0x0000007F
+   add rax, .JumpTable
     jmp rax
 
 .InvalidArgument:
@@ -129,9 +135,32 @@ MyPrintfReal:
     mov rax, INVALID_ARGUMENT
     jmp .StopPrint
 
-.JumpTable:
-    times JUMP_TABLE_LEN jmp .InvalidArgument
+.ArgB:
 
+.ArgC:
+
+.ArgD:
+
+.ArgN:
+
+.ArgO:
+
+.ArgS:
+
+.ArgX:
+
+.JumpTable:
+    jmp .ArgB
+    jmp .ArgC
+    jmp .ArgD
+    times JUMP_TABLE_LEN_FROM_D_TO_N jmp .InvalidArgument
+    jmp .ArgN
+    times JUMP_TABLE_LEN_FROM_N_TO_O jmp .InvalidArgument
+    jmp .ArgO
+    times JUMP_TABLE_LEN_FROM_O_TO_S jmp .InvalidArgument
+    jmp .ArgS
+    times JUMP_TABLE_LEN_FROM_S_TO_X jmp .InvalidArgument
+    jmp .ArgX
 
 ;--------------------------------------------
 
