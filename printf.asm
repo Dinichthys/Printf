@@ -41,6 +41,8 @@ FIRST_DEGREE  equ 0x1
 THIRD_DEGREE  equ 0x3
 FOURTH_DEGREE equ 0x4
 
+%define LOC_VAR_NUM_PRINTED qword [rbp - STACK_ELEM_SIZE]
+
 Alphabet:
     db '0123456789ABCDEF'
 
@@ -81,6 +83,9 @@ MyPrintf:
     push rbp
     mov rbp, rsp                    ; Make the stack frame
 
+    sub rsp, STACK_ELEM_SIZE
+    mov LOC_VAR_NUM_PRINTED, 0x0    ; Local variable with number of printed symbols
+
     mov r8, rbp
     add r8, STACK_ELEM_SIZE * 2     ; R8 - pointer of the argument
     mov rsi, qword [r8]             ; Move pointer of string to RSI -
@@ -89,6 +94,7 @@ MyPrintf:
     jmp MyPrintfReal                ; Start real Printf
 
 ExitFunction:
+    add rsp, STACK_ELEM_SIZE
     mov rsp, rbp
 
     pop rbp
@@ -211,6 +217,14 @@ MyPrintfReal:
 
 .ArgN:
 
+    mov rax, CURRENT_ARGUMENT
+    INCREASE_ARGUMENT_INDEX
+    INCREASE_ARGUMENT_NUMBER
+    mov rdx, LOC_VAR_NUM_PRINTED
+    add rdx, rcx
+    mov qword [rax], rdx
+    jmp .Conditional
+
 ;-----------------
 
 .ArgO:
@@ -275,6 +289,7 @@ PrintBuffer:
     mov rdi, STDOUT         ; Make parameters of syscall
     mov rsi, Buffer
     mov rdx, rcx
+    add LOC_VAR_NUM_PRINTED, rcx
     syscall
     xor rcx, rcx
 
@@ -525,6 +540,7 @@ PrintArgString:
     mov rdi, STDOUT         ; Make parameters of syscall
     sub rsi, rcx
     mov rdx, rcx
+    add LOC_VAR_NUM_PRINTED, rcx
     syscall
 
     pop rcx

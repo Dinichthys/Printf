@@ -17,7 +17,9 @@ int main ()
 {
     enum MyPrintfError error = kDonePrintf;
     ERROR_HANDLER (MyPrintf ("1234567890\n"))
-    ERROR_HANDLER ( MyPrintf ("%s\n", "123\n123%"))
+    int num = 0;
+    ERROR_HANDLER ( MyPrintf ("123\n %n", &num))
+    printf ("%d\n", num);
 
     return EXIT_SUCCESS;
 }
