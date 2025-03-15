@@ -19,7 +19,7 @@ int main ()
     ERROR_HANDLER (MyPrintf ("1234567890\n"))
     int num = 0;
     ERROR_HANDLER ( MyPrintf ("123\n %n", &num))
-    printf ("%d\n", num);
+    ERROR_HANDLER ( MyPrintf ("%d\n", num))
 
     return EXIT_SUCCESS;
 }

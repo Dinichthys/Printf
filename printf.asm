@@ -41,6 +41,9 @@ FIRST_DEGREE  equ 0x1
 THIRD_DEGREE  equ 0x3
 FOURTH_DEGREE equ 0x4
 
+TEN equ 0xA
+EAX_PATTERN equ 0x00000000FFFFFFFF
+
 %define LOC_VAR_NUM_PRINTED qword [rbp - STACK_ELEM_SIZE]
 
 Alphabet:
@@ -213,6 +216,12 @@ MyPrintfReal:
 
 .ArgD:
 
+    mov rax, CURRENT_ARGUMENT
+    INCREASE_ARGUMENT_INDEX
+    INCREASE_ARGUMENT_NUMBER
+    call PrintArgD
+    jmp .Conditional
+
 ;-----------------
 
 .ArgN:
@@ -327,20 +336,96 @@ PrintArgC:
 
 
 ;---------------------------------
-; It pushes sign to stack
+; It translates RAX values
+; to the string
 ;
 ; Entry:  RAX
-; Exit:   STACK
-; Destrs: RAX, RBX, RDX
+; Exit:   Buffer
+; Destrs: RAX
+;---------------------------------
+
+PrintArgD:
+
+    push rax
+    push rbx
+    push rdi
+    push rsi
+
+    mov ebx, TEN
+
+    call CheckSign
+
+    shl rax, 1
+    shr rax, 1
+
+    push rcx
+    xor rdx, rdx
+    push rax
+    mov rcx, REGISTER_SIZE
+    shr rcx, 1                              ; CL = REGISTER_SIZE / 2
+    shr rax, cl
+    mov edx, eax
+    pop rax
+    shl rax, cl
+    shr rax, cl
+    pop rcx
+
+    xor rsi, rsi
+
+    mov rdi, FLAG_START_NUMBER
+
+.Conditional_1:
+    test rax, rax
+    je .StopWhile_1
+
+.While_1:
+    div ebx
+    push rdx
+    xor rdx, rdx
+    inc rsi
+    jmp .Conditional_1
+
+.StopWhile_1:
+
+.Conditional_2:
+    test rsi, rsi
+    je .StopWhile_2
+
+.While_2:
+    pop rax
+    call DigitToStr
+    dec rsi
+    jmp .Conditional_2
+
+.StopWhile_2:
+
+    pop rsi
+    pop rdi
+    pop rbx
+    pop rax
+
+    ret
+
+;---------------------------------
+
+
+;---------------------------------
+; It moves sign to the buffer
+;
+; Entry:  RAX
+; Exit:   Buffer
+; Destrs: RBX, RDX
 ;---------------------------------
 
 CheckSign:
 
+    push rax
     shr rax, REGISTER_SIZE - 1
     cmp rax, 1
     je .Minus
 
 .Done:
+    pop rax
     ret
 
 .Minus:
@@ -364,7 +449,7 @@ CheckSign:
 ; number system of 2 to the power RSI
 ;
 ; Entry:  RAX, RSI
-; Exit:   STRING
+; Exit:   Buffer
 ; Destrs: RAX, RDI
 ;---------------------------------
 
@@ -416,7 +501,7 @@ ValToStrPowTwo:
 ; octal number system
 ;
 ; Entry:  RAX
-; Exit:   STRING
+; Exit:   Buffer
 ; Destrs: RAX, RDI
 ;---------------------------------
 
