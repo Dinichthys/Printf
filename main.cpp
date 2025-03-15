@@ -17,7 +17,7 @@ int main ()
 {
     enum MyPrintfError error = kDonePrintf;
     ERROR_HANDLER (MyPrintf ("1234567890\n"))
-    ERROR_HANDLER ( MyPrintf ("%b\n", 0b10))
+    ERROR_HANDLER ( MyPrintf ("%b %o %x\n", 0b10, 037, 0xAB))
 
     return EXIT_SUCCESS;
 }

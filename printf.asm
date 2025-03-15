@@ -37,6 +37,10 @@ REGISTER_SIZE equ 64
 FLAG_START_NUMBER equ 0x1
 FLAG_END_NUMBER   equ 0x0
 
+FIRST_DEGREE  equ 0x1
+THIRD_DEGREE  equ 0x3
+FOURTH_DEGREE equ 0x4
+
 Alphabet:
     db '0123456789ABCDEF'
 
@@ -172,45 +176,69 @@ MyPrintfReal:
     mov rax, [rax]
     jmp rax
 
+;---------------------------------
+
 .InvalidArgument:
 
     mov rax, INVALID_ARGUMENT
     jmp .StopPrint
+
+;-----------------
 
 .ArgB:
 
     mov rax, CURRENT_ARGUMENT
     INCREASE_ARGUMENT_INDEX
     INCREASE_ARGUMENT_NUMBER
-    call ValBinToStr
+    push rsi
+    mov rsi, FIRST_DEGREE                   ; RSI - the number of power of 2 in counting system
+    call ValToStrPowTwo
+    pop rsi
     jmp .Conditional
+
+;-----------------
 
 .ArgC:
 
     call PrintArgC
     jmp .Conditional
 
+;-----------------
+
 .ArgD:
 
+;-----------------
+
 .ArgN:
+
+;-----------------
 
 .ArgO:
 
     mov rax, CURRENT_ARGUMENT
     INCREASE_ARGUMENT_INDEX
     INCREASE_ARGUMENT_NUMBER
-    call ValOctToStr
+    call ValToStrOct
     jmp .Conditional
 
+;-----------------
+
 .ArgS:
+
+;-----------------
 
 .ArgX:
 
     mov rax, CURRENT_ARGUMENT
     INCREASE_ARGUMENT_INDEX
     INCREASE_ARGUMENT_NUMBER
-    call ValHexToStr
+    push rsi
+    mov rsi, FOURTH_DEGREE                  ; RSI - the number of power of 2 in counting system
+    call ValToStrPowTwo
+    pop rsi
     jmp .Conditional
+
+;---------------------------------
 
 .JumpTable:
     dq .ArgB
@@ -308,28 +336,30 @@ CheckSign:
 
 
 ;---------------------------------
-; It translates AX values
-; to bin string pointed by DI
+; It translates RAX values
+; to the string with value in a form of
+; number system of 2 to the power RSI
 ;
 ; Entry:  RAX, RSI
 ; Exit:   STRING
 ; Destrs: RAX, RDI
 ;---------------------------------
 
-ValBinToStr:
+ValToStrPowTwo:
 
     push rdi
     push rbx
     push rdx
     push rax
-    xor rdx, rdx
-    mov rbx, REGISTER_SIZE - 1
 
+    xor rdx, rdx
+    mov rbx, REGISTER_SIZE
+    sub rbx, rsi
     mov rdi, FLAG_START_NUMBER
 
 .Conditional:
     cmp rdx, REGISTER_SIZE
-    je .Stop_while
+    jae .StopWhile
 
 .While:
     push rcx
@@ -342,17 +372,74 @@ ValBinToStr:
     call DigitToStr
     pop rax
     push rax
-    dec rbx
-    inc rdx
+    sub rbx, rsi
+    add rdx, rsi
     jmp .Conditional
 
-.Stop_while:
+.StopWhile:
 
     pop rax
     pop rdx
     pop rbx
     pop rdi
     ret
+
+;---------------------------------
+
+
+;---------------------------------
+; It translates RAX values
+; to the string with value in a form of
+; octal number system
+;
+; Entry:  RAX
+; Exit:   STRING
+; Destrs: RAX, RDI
+;---------------------------------
+
+ValToStrOct:
+
+    push rdi
+    push rbx
+    push rdx
+    push rax
+
+    xor rdx, rdx
+    mov rbx, REGISTER_SIZE
+    sub rbx, 1                                  ; 64 mod 3 = 1, where 64 bit - size of register, 3 - power of 2
+    mov rdi, FLAG_START_NUMBER
+
+.Conditional:
+    cmp rdx, REGISTER_SIZE
+    jae .StopWhile
+
+.While:
+    push rcx
+    mov rcx, rdx
+    shl rax, cl
+    mov rcx, rbx
+    add rcx, rdx
+    shr rax, cl
+    pop rcx
+    call DigitToStr
+    pop rax
+    push rax
+    sub rbx, THIRD_DEGREE
+    test rdx, rdx
+    je .FirstDigit
+    add rdx, THIRD_DEGREE
+    jmp .Conditional
+
+.StopWhile:
+    pop rax
+    pop rdx
+    pop rbx
+    pop rdi
+    ret
+
+.FirstDigit:
+    add rdx, 1                                  ; 64 mod 3 = 1, where 64 bit - size of register, 3 - power of 2
+    jmp .Conditional
 
 ;---------------------------------
 
