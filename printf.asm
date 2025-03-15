@@ -4,6 +4,8 @@ WRITE_FUNC      equ 0x1
 PRINT_NUMBER    equ 0x1
 STDOUT          equ 0x1
 
+BUFFER_LEN equ 0xFF
+
 END_SYMBOL      equ 0x0
 ARG_SYMBOL      equ '%'
 JUMP_TABLE_FIRST_SYM equ 'b'
@@ -17,6 +19,29 @@ INVALID_ARGUMENT equ 0x1
 
 ADDRESS_LEN_POW_2 equ 0x3
 STACK_ELEM_SIZE   equ 0x8
+QWORD_LEN         equ 0x3
+
+SIGN_MASK equ 0xA000000000000000                            ; First bit is 1, other are 0
+MINUS     equ '-'
+
+REGISTER_SIZE equ 64
+
+%define CURRENT_ARGUMENT        qword [r8]
+%define INCREASE_ARGUMENT_INDEX add r8, STACK_ELEM_SIZE
+%define ARGUMENT_INDEX          r8
+
+%define START_COUNTING_ARGUMENTS xor r9, r9
+%define INCREASE_ARGUMENT_NUMBER inc r9
+%define ARGUMENT_NUMBER          r9
+
+FLAG_START_NUMBER equ 0x1
+FLAG_END_NUMBER   equ 0x0
+
+Alphabet:
+    db '0123456789ABCDEF'
+
+Buffer:
+    db BUFFER_LEN dup (0)
 
 ;--------------------------------------------
 
@@ -54,7 +79,7 @@ MyPrintf:
 
     mov r8, rbp
     add r8, STACK_ELEM_SIZE * 2     ; R8 - pointer of the argument
-    mov rsi, qword [r8]              ; Move pointer of string to RSI
+    mov rsi, qword [r8]             ; Move pointer of string to RSI -
     add r8, STACK_ELEM_SIZE
 
     jmp MyPrintfReal                ; Start real Printf
@@ -72,23 +97,20 @@ ExitFunction:
 
 ;--------------------------------------------
 
-
 ;--------------------------------------------
 ; Function print the string with parameters
 ; pointed by R8
 ;
 ; Entry: RSI, R8
 ; Exit:  Stdout, RAX
-; Dest:  RCX, RDX, RSI, RDI, R8, R11
+; Dest:  RCX, RDX, RSI, RDI, R8, R9, R11
 ;--------------------------------------------
 
 MyPrintfReal:
+    xor rcx, rcx
+    START_COUNTING_ARGUMENTS                    ; Start counting arguments
 
-    mov rcx, 0x0                                ; Start counting arguments
-
-    mov rax, WRITE_FUNC
-    mov rdi, STDOUT
-    mov rdx, PRINT_NUMBER                       ; Make parameters of syscall
+;---------------------------------
 
 .Conditional:
     cmp byte [rsi], END_SYMBOL
@@ -98,36 +120,56 @@ MyPrintfReal:
     cmp byte [rsi], ARG_SYMBOL
     je .PrintArgument                           ; Check if an argument is needed
 
-.Print:
-    syscall                                     ; Print symbol
+.PrintChar:
+    cmp rcx, BUFFER_LEN
+    je .BufferEnd
+
+.Continue:
+    mov al, byte [rsi]
+    mov byte [Buffer + rcx], al
+    inc rcx
 
     inc rsi                                     ; RSI is the pointer of the next symbol of the string
     jmp .Conditional
 
+;---------------------------------
+
 .Done:
+    cmp rcx, 0x0
+    jne .LastPrintBuffer
+
+.MovDoneResult:
     mov rax, DONE_RESULT
 
 .StopPrint:
     jmp ExitFunction
 
+.LastPrintBuffer:
+    call PrintBuffer
+    jmp .MovDoneResult
+
+;---------------------------------
+
+.BufferEnd:
+    call PrintBuffer
+    jmp .Continue
+
+;---------------------------------
+
 .PrintArgument:
     inc rsi
 
+    cmp byte [rsi], ARG_SYMBOL
+    je .PrintChar
     xor rax, rax
-    mov al, byte [rsi]                          ; Move char to RAX
-    cmp rax, ARG_SYMBOL
-    je .Print
-    sub rax, JUMP_TABLE_FIRST_SYM
+    mov al, byte [rsi]
+    inc rsi
+    sub rax, JUMP_TABLE_FIRST_SYM               ; RAX is the number of string in JumpTable
 
-    push rbx
-    push rax
-    shl rax, ADDRESS_LEN_POW_2                  ; Multiply RAX by the len of address (8 bytes)
-    pop rbx
-    add rax, rbx                                ; RAX = RAX * 9
-    pop rbx
+    shl rax, QWORD_LEN
 
-;    add rax, 0x0000007F
-   add rax, .JumpTable
+    add rax, .JumpTable
+    mov rax, [rax]
     jmp rax
 
 .InvalidArgument:
@@ -137,7 +179,16 @@ MyPrintfReal:
 
 .ArgB:
 
+    mov rax, CURRENT_ARGUMENT
+    INCREASE_ARGUMENT_INDEX
+    INCREASE_ARGUMENT_NUMBER
+    call ValBinToStr
+    jmp .Conditional
+
 .ArgC:
+
+    call PrintArgC
+    jmp .Conditional
 
 .ArgD:
 
@@ -145,22 +196,210 @@ MyPrintfReal:
 
 .ArgO:
 
+    mov rax, CURRENT_ARGUMENT
+    INCREASE_ARGUMENT_INDEX
+    INCREASE_ARGUMENT_NUMBER
+    call ValOctToStr
+    jmp .Conditional
+
 .ArgS:
 
 .ArgX:
 
+    mov rax, CURRENT_ARGUMENT
+    INCREASE_ARGUMENT_INDEX
+    INCREASE_ARGUMENT_NUMBER
+    call ValHexToStr
+    jmp .Conditional
+
 .JumpTable:
-    jmp .ArgB
-    jmp .ArgC
-    jmp .ArgD
-    times JUMP_TABLE_LEN_FROM_D_TO_N jmp .InvalidArgument
-    jmp .ArgN
-    times JUMP_TABLE_LEN_FROM_N_TO_O jmp .InvalidArgument
-    jmp .ArgO
-    times JUMP_TABLE_LEN_FROM_O_TO_S jmp .InvalidArgument
-    jmp .ArgS
-    times JUMP_TABLE_LEN_FROM_S_TO_X jmp .InvalidArgument
-    jmp .ArgX
+    dq .ArgB
+    dq .ArgC
+    dq .ArgD
+    dq JUMP_TABLE_LEN_FROM_D_TO_N dup (.InvalidArgument)
+    dq .ArgN
+    dq JUMP_TABLE_LEN_FROM_N_TO_O dup (.InvalidArgument)
+    dq .ArgO
+    dq JUMP_TABLE_LEN_FROM_O_TO_S dup (.InvalidArgument)
+    dq .ArgS
+    dq JUMP_TABLE_LEN_FROM_S_TO_X dup (.InvalidArgument)
+    dq .ArgX
+
+;---------------------------------
+; Prints buffer to stdout and
+; mov null to rcx
+;
+; Entry:  Buffer, RCX
+; Exit:   Stdout, RCX
+; Destrs: RAX, RDI, RSI, RDX, R11
+;---------------------------------
+
+PrintBuffer:
+    mov rax, WRITE_FUNC
+    mov rdi, STDOUT         ; Make parameters of syscall
+    mov rsi, Buffer
+    mov rdx, rcx
+    syscall
+    xor rcx, rcx
+
+    ret
+
+;---------------------------------
+
+
+;---------------------------------
+; It moves argument char to buffer
+;
+; Entry:  RAX, RCX
+; Exit:   Stdout, RCX, Buffer
+; Destrs: RAX, RBX, RCX, RDX
+;---------------------------------
+
+PrintArgC:
+
+    mov rax, CURRENT_ARGUMENT
+    cmp rcx, BUFFER_LEN
+    je .BufferEnd
+
+.Continue:
+    mov byte [Buffer + rcx], al
+    inc rcx
+    INCREASE_ARGUMENT_INDEX
+    INCREASE_ARGUMENT_NUMBER
+    ret
+
+.BufferEnd:
+    call PrintBuffer
+    jmp .Continue
+
+;---------------------------------
+
+
+;---------------------------------
+; It pushes sign to stack
+;
+; Entry:  RAX
+; Exit:   STACK
+; Destrs: RAX, RBX, RDX
+;---------------------------------
+
+CheckSign:
+
+    shr rax, REGISTER_SIZE - 1
+    cmp rax, 1
+    je .Minus
+
+.Done:
+    ret
+
+.Minus:
+    cmp rcx, BUFFER_LEN
+    je .BufferEnd
+
+.Continue:
+    mov byte [Buffer + rcx],  MINUS
+    jmp .Done
+
+.BufferEnd:
+    call PrintBuffer
+    jmp .Continue
+
+;---------------------------------
+
+
+;---------------------------------
+; It translates AX values
+; to bin string pointed by DI
+;
+; Entry:  RAX, RSI
+; Exit:   STRING
+; Destrs: RAX, RDI
+;---------------------------------
+
+ValBinToStr:
+
+    push rdi
+    push rbx
+    push rdx
+    push rax
+    xor rdx, rdx
+    mov rbx, REGISTER_SIZE - 1
+
+    mov rdi, FLAG_START_NUMBER
+
+.Conditional:
+    cmp rdx, REGISTER_SIZE
+    je .Stop_while
+
+.While:
+    push rcx
+    mov rcx, rdx
+    shl rax, cl
+    mov rcx, rbx
+    add rcx, rdx
+    shr rax, cl
+    pop rcx
+    call DigitToStr
+    pop rax
+    push rax
+    dec rbx
+    inc rdx
+    jmp .Conditional
+
+.Stop_while:
+
+    pop rax
+    pop rdx
+    pop rbx
+    pop rdi
+    ret
+
+;---------------------------------
+
+
+;---------------------------------
+; It translates number from AL to
+; stack
+;
+; Entry:  RAX, RDI
+; Exit:   Buffer
+; Destrs: RAX, RDI
+;---------------------------------
+
+DigitToStr:
+
+    cmp rcx, BUFFER_LEN
+    je .BufferEnd
+
+.Continue:
+    cmp rdi, FLAG_START_NUMBER
+    je .SkipZeroes
+
+.DontSkip:
+    mov al, byte [Alphabet + rax]
+    mov byte [Buffer + rcx], al
+    inc rcx
+
+.Skip:
+    ret
+
+.SkipZeroes:
+    test rax, rax
+    je .Skip
+    mov rdi, FLAG_END_NUMBER
+    jmp .DontSkip
+
+.BufferEnd:
+    push rax
+    push rbx
+    push rdx
+    call PrintBuffer
+    pop rdx
+    pop rbx
+    pop rax
+    jmp .Continue
+
+;---------------------------------
 
 ;--------------------------------------------
 
