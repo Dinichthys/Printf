@@ -352,26 +352,21 @@ PrintArgD:
     push rdi
     push rsi
 
+
+    push rcx
+    mov rcx, REGISTER_SIZE
+    shr rcx, 1                               ; CL = REGISTER_SIZE / 4
+    shl rax, cl
+    shr rax, cl                              ; Prepare DX and AX for dividing
+    pop rcx
+
     mov rbx, INT_SIZE
     call CheckSign
     mov ebx, TEN
 
-    shl rax, 1
-    shr rax, 1
-
-    push rcx
     xor rdx, rdx
-    push rax
-    mov rcx, REGISTER_SIZE
-    shr rcx, 1                              ; CL = REGISTER_SIZE / 2
-    shr rax, cl
-    mov edx, eax
-    pop rax
-    shl rax, cl
-    shr rax, cl
-    pop rcx
 
-    xor rsi, rsi
+    xor rsi, rsi                             ; RSI - Counter of digits in the number
 
     mov rdi, FLAG_START_NUMBER
 
@@ -429,7 +424,7 @@ CheckSign:
     pop rcx
 
     cmp rax, 1
-    jae .Minus
+    je .Minus
     pop rax
 
 .Done:
