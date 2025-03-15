@@ -225,6 +225,14 @@ MyPrintfReal:
 
 .ArgS:
 
+    push rsi
+    mov rsi, CURRENT_ARGUMENT
+    INCREASE_ARGUMENT_INDEX
+    INCREASE_ARGUMENT_NUMBER
+    call PrintArgString
+    pop rsi
+    jmp .Conditional
+
 ;-----------------
 
 .ArgX:
@@ -485,6 +493,42 @@ DigitToStr:
     pop rbx
     pop rax
     jmp .Continue
+
+;---------------------------------
+
+
+;---------------------------------
+; It prints string pointed by RSI
+;
+; Entry:  RSI
+; Exit:   Stdout
+; Destrs: RAX, RDX, RDI,
+;---------------------------------
+
+PrintArgString:
+
+    push rcx
+
+    xor rcx, rcx
+
+.Conditional:
+    cmp byte [rsi], END_SYMBOL
+    je .ExitWhile
+
+.While:
+    inc rsi
+    inc rcx
+    jmp .Conditional
+
+.ExitWhile:
+    mov rax, WRITE_FUNC
+    mov rdi, STDOUT         ; Make parameters of syscall
+    sub rsi, rcx
+    mov rdx, rcx
+    syscall
+
+    pop rcx
+    ret
 
 ;---------------------------------
 
