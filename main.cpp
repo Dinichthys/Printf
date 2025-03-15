@@ -21,6 +21,9 @@ int main ()
     ERROR_HANDLER ( MyPrintf ("123\n %n", &num))
     ERROR_HANDLER ( MyPrintf ("%d\n", num))
 
+    ERROR_HANDLER ( MyPrintf ("%o\n%d %s %x %d%%%c%b\n%d %s %x %d%%%c%b\n", -1, -1, "love", 3802, 100, 33, 127,
+                                                                         -1, "love", 3802, 100, 33, 127))
+
     return EXIT_SUCCESS;
 }
 

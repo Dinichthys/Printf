@@ -25,6 +25,7 @@ SIGN_MASK equ 0xA000000000000000                            ; First bit is 1, ot
 MINUS     equ '-'
 
 REGISTER_SIZE equ 64
+INT_SIZE      equ 32
 
 %define CURRENT_ARGUMENT        qword [r8]
 %define INCREASE_ARGUMENT_INDEX add r8, STACK_ELEM_SIZE
@@ -351,9 +352,9 @@ PrintArgD:
     push rdi
     push rsi
 
-    mov ebx, TEN
-
+    mov rbx, INT_SIZE
     call CheckSign
+    mov ebx, TEN
 
     shl rax, 1
     shr rax, 1
@@ -412,7 +413,7 @@ PrintArgD:
 ;---------------------------------
 ; It moves sign to the buffer
 ;
-; Entry:  RAX
+; Entry:  RAX, RBX
 ; Exit:   Buffer
 ; Destrs: RBX, RDX
 ;---------------------------------
@@ -420,12 +421,18 @@ PrintArgD:
 CheckSign:
 
     push rax
-    shr rax, REGISTER_SIZE - 1
+
+    push rcx
+    mov rcx, rbx
+    sub rcx, 1
+    shr rax, cl
+    pop rcx
+
     cmp rax, 1
-    je .Minus
+    jae .Minus
+    pop rax
 
 .Done:
-    pop rax
     ret
 
 .Minus:
@@ -433,11 +440,16 @@ CheckSign:
     je .BufferEnd
 
 .Continue:
+    pop rax
+    neg eax
     mov byte [Buffer + rcx],  MINUS
+    inc rcx
     jmp .Done
 
 .BufferEnd:
+    push rcx
     call PrintBuffer
+    pop rcx
     jmp .Continue
 
 ;---------------------------------
@@ -602,14 +614,16 @@ DigitToStr:
 ;
 ; Entry:  RSI
 ; Exit:   Stdout
-; Destrs: RAX, RDX, RDI,
+; Destrs: RAX, RDX, RDI
 ;---------------------------------
 
 PrintArgString:
 
-    push rcx
+    push rsi
 
-    xor rcx, rcx
+    call PrintBuffer
+
+    pop rsi
 
 .Conditional:
     cmp byte [rsi], END_SYMBOL
@@ -628,7 +642,8 @@ PrintArgString:
     add LOC_VAR_NUM_PRINTED, rcx
     syscall
 
-    pop rcx
+    xor rcx, rcx
+
     ret
 
 ;---------------------------------
