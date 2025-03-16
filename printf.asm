@@ -6,6 +6,8 @@ STDOUT          equ 0x1
 
 BUFFER_LEN equ 0xFF
 
+NUMBER_ARGS_IN_REGS equ 6
+
 END_SYMBOL           equ 0x0
 ARG_SYMBOL           equ '%'
 JUMP_TABLE_FIRST_SYM equ 'b'
@@ -33,9 +35,14 @@ DOUBLE_SIZE   equ 64
 %define INCREASE_ARGUMENT_INDEX add r8, STACK_ELEM_SIZE
 %define ARGUMENT_INDEX          r8
 
-%define START_COUNTING_ARGUMENTS xor r9, r9
-%define INCREASE_ARGUMENT_NUMBER inc r9
-%define ARGUMENT_NUMBER          r9
+%define CURRENT_FLOAT_ARGUMENT         [r9]
+%define INCREASE_FLOAT_ARGUMENT_INDEX  add r9, STACK_ELEM_SIZE
+%define FLOAT_ARGUMENT_INDEX           r9
+
+%macro START_INDEXING_FLOAT_ARGUMENTS 0
+    mov r9, (NUMBER_ARGS_IN_REGS + 2) * STACK_ELEM_SIZE
+    add r9, rbp
+%endmacro
 
 FLAG_START_NUMBER equ 0x1
 FLAG_END_NUMBER   equ 0x0
@@ -61,6 +68,28 @@ FLAG_PLUS  equ 0
 FLAG_MINUS equ 1
 
 %define LOC_VAR_NUM_PRINTED qword [rbp - STACK_ELEM_SIZE]
+%define LOC_VAR_FLOAT_GOT   qword [rbp - STACK_ELEM_SIZE * 2]
+%define INCREASE_FLOAT_COUNTER add qword [rbp - STACK_ELEM_SIZE * 2], 8         ; 8 = SizeOf (label)
+
+%macro ARG_F_GOT_FLOAT_FROM_REG 1
+    INCREASE_FLOAT_COUNTER
+    movq rax, %1
+    call PrintArgF
+    jmp .Conditional
+%endmacro
+
+%macro GOT_ARGUMENT_TO_RAX 0
+    mov rax, CURRENT_ARGUMENT
+    INCREASE_ARGUMENT_INDEX
+%endmacro
+
+%macro SYNCHRONIZATION_ARG_INDEXES 0
+    mov rax, ARGUMENT_INDEX
+    sub rax, (NUMBER_ARGS_IN_REGS + 2) * STACK_ELEM_SIZE
+    cmp rax, rbp
+    je .SynchronizationFromAvgToFloat
+    ja .SynchronizationFromFloatToAvg
+%endmacro
 
 Alphabet:
     db '0123456789ABCDEF'
@@ -105,6 +134,9 @@ MyPrintf:
     sub rsp, STACK_ELEM_SIZE
     mov LOC_VAR_NUM_PRINTED, 0x0    ; Local variable with number of printed symbols
 
+    sub rsp, STACK_ELEM_SIZE
+    mov LOC_VAR_FLOAT_GOT, 0x0
+
     mov r8, rbp
     add r8, STACK_ELEM_SIZE * 2     ; R8 - pointer of the argument
     mov rsi, qword [r8]             ; Move pointer of string to RSI -
@@ -113,7 +145,7 @@ MyPrintf:
     jmp MyPrintfReal                ; Start real Printf
 
 ExitFunction:
-    add rsp, STACK_ELEM_SIZE
+    add rsp, STACK_ELEM_SIZE * 2
     mov rsp, rbp
 
     pop rbp
@@ -137,7 +169,8 @@ ExitFunction:
 
 MyPrintfReal:
     xor rcx, rcx
-    START_COUNTING_ARGUMENTS                    ; Start counting arguments
+
+    START_INDEXING_FLOAT_ARGUMENTS
 
 ;---------------------------------
 
@@ -174,7 +207,9 @@ MyPrintfReal:
     jmp ExitFunction
 
 .LastPrintBuffer:
+    push rsi
     call PrintBuffer
+    pop rsi
     jmp .MovDoneResult
 
 ;---------------------------------
@@ -212,60 +247,144 @@ MyPrintfReal:
 
 .ArgB:
 
-    mov rax, CURRENT_ARGUMENT
-    INCREASE_ARGUMENT_INDEX
-    INCREASE_ARGUMENT_NUMBER
+    GOT_ARGUMENT_TO_RAX
+
     push rsi
     mov rsi, FIRST_DEGREE                   ; RSI - the number of power of 2 in counting system
     call ValToStrPowTwo
     pop rsi
+
+    SYNCHRONIZATION_ARG_INDEXES
+
     jmp .Conditional
 
 ;-----------------
 
 .ArgC:
 
+    GOT_ARGUMENT_TO_RAX
+
     call PrintArgC
+
+    SYNCHRONIZATION_ARG_INDEXES
+
     jmp .Conditional
 
 ;-----------------
 
 .ArgD:
 
-    mov rax, CURRENT_ARGUMENT
-    INCREASE_ARGUMENT_INDEX
-    INCREASE_ARGUMENT_NUMBER
+    GOT_ARGUMENT_TO_RAX
+
     call PrintArgD
+
+    SYNCHRONIZATION_ARG_INDEXES
+
     jmp .Conditional
 
 ;-----------------
 
 .ArgF:
 
-    movq rax, xmm0
+    mov rax, LOC_VAR_FLOAT_GOT
+    add rax, .JumpTableFloat
+    mov rax, [rax]
+    jmp rax
+
+;--------
+
+.FirstFloat:
+    ARG_F_GOT_FLOAT_FROM_REG xmm0
+
+;--------
+
+.SecondFloat:
+    ARG_F_GOT_FLOAT_FROM_REG xmm1
+
+;--------
+
+.ThirdFloat:
+    ARG_F_GOT_FLOAT_FROM_REG xmm2
+
+;--------
+
+.FourthFloat:
+    ARG_F_GOT_FLOAT_FROM_REG xmm3
+
+;--------
+
+.FifthFloat:
+    ARG_F_GOT_FLOAT_FROM_REG xmm4
+
+;--------
+
+.SixthFloat:
+    ARG_F_GOT_FLOAT_FROM_REG xmm5
+
+;--------
+
+.SeventhFloat:
+    ARG_F_GOT_FLOAT_FROM_REG xmm6
+
+;--------
+
+.EighthFloat:
+    ARG_F_GOT_FLOAT_FROM_REG xmm7
+
+;--------
+
+.FloatInStack:
+
+    movsd xmm4, CURRENT_FLOAT_ARGUMENT
+    movq rax, xmm4                              ; XMM4 - could be changed according to calling convention
+    INCREASE_FLOAT_ARGUMENT_INDEX
+
     call PrintArgF
+
+    mov rax, ARGUMENT_INDEX
+    sub rax, (NUMBER_ARGS_IN_REGS + 2) * STACK_ELEM_SIZE
+    cmp rax, rbp
+
+    jae .SynchronizationFromAvgToFloat
     jmp .Conditional
+
+;--------
+
+.JumpTableFloat:
+    dq .FirstFloat
+    dq .SecondFloat
+    dq .ThirdFloat
+    dq .FourthFloat
+    dq .FifthFloat
+    dq .SixthFloat
+    dq .SeventhFloat
+    dq .EighthFloat
+    dq .FloatInStack
 
 ;-----------------
 
 .ArgN:
 
-    mov rax, CURRENT_ARGUMENT
-    INCREASE_ARGUMENT_INDEX
-    INCREASE_ARGUMENT_NUMBER
+    GOT_ARGUMENT_TO_RAX
+
     mov rdx, LOC_VAR_NUM_PRINTED
     add rdx, rcx
     mov qword [rax], rdx
+
+    SYNCHRONIZATION_ARG_INDEXES
+
     jmp .Conditional
 
 ;-----------------
 
 .ArgO:
 
-    mov rax, CURRENT_ARGUMENT
-    INCREASE_ARGUMENT_INDEX
-    INCREASE_ARGUMENT_NUMBER
+    GOT_ARGUMENT_TO_RAX
+
     call ValToStrOct
+
+    SYNCHRONIZATION_ARG_INDEXES
+
     jmp .Conditional
 
 ;-----------------
@@ -275,22 +394,26 @@ MyPrintfReal:
     push rsi
     mov rsi, CURRENT_ARGUMENT
     INCREASE_ARGUMENT_INDEX
-    INCREASE_ARGUMENT_NUMBER
     call PrintArgString
     pop rsi
+
+    SYNCHRONIZATION_ARG_INDEXES
+
     jmp .Conditional
 
 ;-----------------
 
 .ArgX:
 
-    mov rax, CURRENT_ARGUMENT
-    INCREASE_ARGUMENT_INDEX
-    INCREASE_ARGUMENT_NUMBER
+    GOT_ARGUMENT_TO_RAX
+
     push rsi
     mov rsi, FOURTH_DEGREE                  ; RSI - the number of power of 2 in counting system
     call ValToStrPowTwo
     pop rsi
+
+    SYNCHRONIZATION_ARG_INDEXES
+
     jmp .Conditional
 
 ;---------------------------------
@@ -309,6 +432,22 @@ MyPrintfReal:
     dq .ArgS
     dq JUMP_TABLE_LEN_FROM_S_TO_X dup (.InvalidArgument)
     dq .ArgX
+
+;---------------------------------
+
+.SynchronizationFromAvgToFloat:
+    mov ARGUMENT_INDEX, FLOAT_ARGUMENT_INDEX
+    jmp .Conditional
+
+;---------------------------------
+
+;---------------------------------
+
+.SynchronizationFromFloatToAvg:
+    mov FLOAT_ARGUMENT_INDEX,  ARGUMENT_INDEX
+    jmp .Conditional
+
+;---------------------------------
 
 ;---------------------------------
 ; Prints buffer to stdout and
@@ -343,15 +482,12 @@ PrintBuffer:
 
 PrintArgC:
 
-    mov rax, CURRENT_ARGUMENT
     cmp rcx, BUFFER_LEN
     je .BufferEnd
 
 .Continue:
     mov byte [Buffer + rcx], al
     inc rcx
-    INCREASE_ARGUMENT_INDEX
-    INCREASE_ARGUMENT_NUMBER
     ret
 
 .BufferEnd:
@@ -623,7 +759,7 @@ PrintNumber:
     ret
 
 .ZeroStarted:
-; Выводи нули, пока регистры rbx и rsi не станут равны, потом просто выведи число
+; It prints '0.' and then prints zeroes until RBX = RSI. Then it will print the hole number
 
     cmp rcx, BUFFER_LEN - 1
     jae .BufferEndZeroStarted
