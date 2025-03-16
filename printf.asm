@@ -243,7 +243,6 @@ MyPrintfReal:
 .ArgF:
 
     movq rax, xmm0
-    ; cvtss2si eax, xmm0
     call PrintArgF
     jmp .Conditional
 
@@ -464,23 +463,16 @@ PrintArgF:
     shr rbx, DOUBLE_SIZE - MANTISSA_LEN
     add rbx, qword [MANTISSA_ONE]                    ; RBX - Mantissa
 
-    mov rcx, MANTISSA_LEN
-    sub rcx, rdx
+    tzcnt rcx, rbx                                   ; RCX = Number of trailing zeroes in RBX
+    shr rbx, cl
 
-
-.ConditionalLeaveZeroes:
     push rbx
-    and rbx, 0x1
-    cmp rbx, 0x1
+    mov rbx, rcx
+    mov rcx, MANTISSA_LEN
+    sub rcx, rbx
+    sub rcx, rdx
     pop rbx
-    je .ExitWhileLiveZeroes
 
-.WhileLiveZeroes:
-    shr rbx, 0x1
-    dec rcx
-    jmp .ConditionalLeaveZeroes
-
-.ExitWhileLiveZeroes:
                                                 ; Printed number = RBX * 2 ^ (-RCX)
                                                 ; Printed number = RBX * 5 ^ (RCX) * 10 ^ (-RCX)
     cmp rcx, [SIGN_MASK]
@@ -489,11 +481,43 @@ PrintArgF:
     cmp rcx, 0x0
     je .ZeroRCX
 
+    push rax
+    push rdx
+
+    lzcnt rdx, rbx                          ; RDX = Number of leading zeroes in RBX
+    push rcx                                ; Push old RCX
+    shl rcx, 1                              ; RCX = old RCX * 2
+    pop rax                                 ; RAX = old RCX
+    add rcx, rax                            ; RCX = old RCX * 3
+.ConditionalRoundResult:
+    cmp rdx, rcx                            ; What is greater?
+                                            ; Number of leading zeroes in RBX or 3 * RCX
+    jae .StopRounding
+
+    sub rcx, rdx
+    shr rcx, 2
+    inc rcx
+    shr rbx, cl
+    sub rax, rcx
+
+; .Round:
+;     shr rbx, 1
+;     inc rdx
+;     dec rax
+;     sub rcx, 3                              ; RCX = 3 * (RAX - 1) = 3 * RAX - 3 = RCX - 3
+;     jmp .ConditionalRoundResult
+
+.StopRounding:
+    mov rcx, rax
+
     push rcx
 .For:
     imul rbx, FIVE                          ; 5 = 10 / 2
     loop .For
     pop rcx
+
+    pop rdx
+    pop rax
 
     mov rax, rbx
     mov rbx, rcx
@@ -522,19 +546,9 @@ PrintArgF:
     jmp .Done
 
 .NegativeNum:
-    neg rax
+    neg rax                                  ; In function of checking sign RAX was negative
     shl rax, 1
     shr rax, 1
-    ; push rax
-    ; fst qword [rsp]
-    ; push rax
-    ; fld dword [rsp]
-    ; fchs                                     ; Negate the value of the float number on the top of the stack
-    ; fst qword [rsp]
-    ; pop rax
-    ; mov rdx, rax
-    ; fld dword [rsp]
-    ; pop rax
     mov rdx, rax
     shr rdx, MANTISSA_LEN
     mov rbx, EXPONENT
@@ -563,7 +577,7 @@ PrintNumber:
 
     mov rdi, rbx
 
-    mov ebx, TEN
+    mov rbx, TEN
 
     xor rdx, rdx
 
@@ -575,7 +589,7 @@ PrintNumber:
     je .StopWhile_1
 
 .While_1:
-    div ebx
+    div rbx
     push rdx
     xor rdx, rdx
     inc rsi

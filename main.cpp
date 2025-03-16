@@ -23,7 +23,7 @@ int main ()
 
     ERROR_HANDLER ( MyPrintf ("%o\n%d %s %x %d%%%c%b\n%d %s %x %d%%%c%b\n", -1, -1, "love", 3802, 100, 33, 127,
                                                                          -1, "love", 3802, 100, 33, 127))
-    float fnum = -2.75;
+    float fnum = -123.7;
 
     ERROR_HANDLER ( MyPrintf ("%f\n", fnum))
 
