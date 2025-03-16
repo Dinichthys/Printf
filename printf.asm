@@ -6,10 +6,10 @@ STDOUT          equ 0x1
 
 BUFFER_LEN equ 0xFF
 
-END_SYMBOL      equ 0x0
-ARG_SYMBOL      equ '%'
+END_SYMBOL           equ 0x0
+ARG_SYMBOL           equ '%'
 JUMP_TABLE_FIRST_SYM equ 'b'
-%define JUMP_TABLE_LEN_FROM_D_TO_N  'n'-'d' - 1
+%define JUMP_TABLE_LEN_FROM_F_TO_N  'n'-'f' - 1
 %define JUMP_TABLE_LEN_FROM_N_TO_O  'o'-'n' - 1
 %define JUMP_TABLE_LEN_FROM_O_TO_S  's'-'o' - 1
 %define JUMP_TABLE_LEN_FROM_S_TO_X  'x'-'s' - 1
@@ -21,11 +21,13 @@ ADDRESS_LEN_POW_2 equ 0x3
 STACK_ELEM_SIZE   equ 0x8
 QWORD_LEN         equ 0x3
 
-SIGN_MASK equ 0xA000000000000000                            ; First bit is 1, other are 0
+SIGN_MASK dq 0xA000000000000000                            ; First bit is 1, other are 0
 MINUS     equ '-'
 
 REGISTER_SIZE equ 64
 INT_SIZE      equ 32
+FLOAT_SIZE    equ 32
+DOUBLE_SIZE   equ 64
 
 %define CURRENT_ARGUMENT        qword [r8]
 %define INCREASE_ARGUMENT_INDEX add r8, STACK_ELEM_SIZE
@@ -42,8 +44,21 @@ FIRST_DEGREE  equ 0x1
 THIRD_DEGREE  equ 0x3
 FOURTH_DEGREE equ 0x4
 
-TEN equ 0xA
+TEN  equ 0xA
+FIVE equ 0x5
+
 EAX_PATTERN equ 0x00000000FFFFFFFF
+
+MANTISSA_LEN equ 52
+MANTISSA_ONE dq 0x0010000000000000
+
+EXPONENT equ 0b10000000000
+
+FLAG_NEG_RCX equ 1
+FLAG_DEF_RCX equ 0
+
+FLAG_PLUS  equ 0
+FLAG_MINUS equ 1
 
 %define LOC_VAR_NUM_PRINTED qword [rbp - STACK_ELEM_SIZE]
 
@@ -225,6 +240,15 @@ MyPrintfReal:
 
 ;-----------------
 
+.ArgF:
+
+    movq rax, xmm0
+    ; cvtss2si eax, xmm0
+    call PrintArgF
+    jmp .Conditional
+
+;-----------------
+
 .ArgN:
 
     mov rax, CURRENT_ARGUMENT
@@ -276,7 +300,9 @@ MyPrintfReal:
     dq .ArgB
     dq .ArgC
     dq .ArgD
-    dq JUMP_TABLE_LEN_FROM_D_TO_N dup (.InvalidArgument)
+    dq .InvalidArgument                                     ; %e
+    dq .ArgF
+    dq JUMP_TABLE_LEN_FROM_F_TO_N dup (.InvalidArgument)
     dq .ArgN
     dq JUMP_TABLE_LEN_FROM_N_TO_O dup (.InvalidArgument)
     dq .ArgO
@@ -342,7 +368,7 @@ PrintArgC:
 ;
 ; Entry:  RAX
 ; Exit:   Buffer
-; Destrs: RAX
+; Destrs: RAX, RDX
 ;---------------------------------
 
 PrintArgD:
@@ -351,7 +377,6 @@ PrintArgD:
     push rbx
     push rdi
     push rsi
-
 
     push rcx
     mov rcx, REGISTER_SIZE
@@ -406,6 +431,246 @@ PrintArgD:
 
 
 ;---------------------------------
+; It translates RAX values
+; to the string
+;
+; Entry:  RAX
+; Exit:   Buffer
+; Destrs: RAX
+;---------------------------------
+
+PrintArgF:
+
+    push rax
+    push rbx
+    push rdx
+
+    mov rbx, DOUBLE_SIZE
+    call CheckSign
+    push rcx
+
+    cmp rdx, FLAG_MINUS
+    je .NegativeNum
+
+    mov rdx, rax
+    shr rdx, MANTISSA_LEN
+    mov rbx, EXPONENT
+    inc rdx
+    sub rdx, rbx                             ; DX - Exponent
+
+.ContinueNegativeNum:
+    mov rbx, rax
+    shl rbx, DOUBLE_SIZE - MANTISSA_LEN
+    shr rbx, DOUBLE_SIZE - MANTISSA_LEN
+    add rbx, qword [MANTISSA_ONE]                    ; RBX - Mantissa
+
+    mov rcx, MANTISSA_LEN
+    sub rcx, rdx
+
+
+.ConditionalLeaveZeroes:
+    push rbx
+    and rbx, 0x1
+    cmp rbx, 0x1
+    pop rbx
+    je .ExitWhileLiveZeroes
+
+.WhileLiveZeroes:
+    shr rbx, 0x1
+    dec rcx
+    jmp .ConditionalLeaveZeroes
+
+.ExitWhileLiveZeroes:
+                                                ; Printed number = RBX * 2 ^ (-RCX)
+                                                ; Printed number = RBX * 5 ^ (RCX) * 10 ^ (-RCX)
+    cmp rcx, [SIGN_MASK]
+    ja .NegRCX
+    je .ZeroRCX
+    cmp rcx, 0x0
+    je .ZeroRCX
+
+    push rcx
+.For:
+    imul rbx, FIVE                          ; 5 = 10 / 2
+    loop .For
+    pop rcx
+
+    mov rax, rbx
+    mov rbx, rcx
+    pop rcx
+    call PrintNumber
+
+.Done:
+    pop rdx
+    pop rbx
+    pop rax
+
+    ret
+
+.NegRCX:
+    neg rcx
+    shl rbx, cl
+    mov rax, rbx
+    pop rcx
+    call PrintArgD
+    jmp .Done
+
+.ZeroRCX:
+    mov rax, rbx
+    pop rcx
+    call PrintArgD
+    jmp .Done
+
+.NegativeNum:
+    neg rax
+    shl rax, 1
+    shr rax, 1
+    ; push rax
+    ; fst qword [rsp]
+    ; push rax
+    ; fld dword [rsp]
+    ; fchs                                     ; Negate the value of the float number on the top of the stack
+    ; fst qword [rsp]
+    ; pop rax
+    ; mov rdx, rax
+    ; fld dword [rsp]
+    ; pop rax
+    mov rdx, rax
+    shr rdx, MANTISSA_LEN
+    mov rbx, EXPONENT
+    inc rdx
+    sub rdx, rbx                             ; DX - Exponent
+    jmp .ContinueNegativeNum
+
+;---------------------------------
+
+
+;---------------------------------
+; It prints number RAX * 10 ^ (-RBX)
+;
+; Entry:  RAX, RBX, RCX
+; Exit:   Buffer
+; Destrs: RAX
+;---------------------------------
+
+PrintNumber:
+
+    push rax
+    push rdx
+    push rbx
+    push rdi
+    push rsi
+
+    mov rdi, rbx
+
+    mov ebx, TEN
+
+    xor rdx, rdx
+
+    xor rsi, rsi                             ; RSI - Counter of digits in the number
+
+
+.Conditional_1:
+    test rax, rax
+    je .StopWhile_1
+
+.While_1:
+    div ebx
+    push rdx
+    xor rdx, rdx
+    inc rsi
+    jmp .Conditional_1
+
+.StopWhile_1:
+
+    mov rbx, rdi
+    cmp rbx, rsi
+    jae .ZeroStarted                            ; RBX more than length of RAX so number will looks like '0.etc'
+    jmp .RSImoreRBX
+
+.Conditional_2:
+    test rsi, rsi
+    je .StopWhile_2
+
+.While_2:
+    pop rax
+    call DigitToStr
+    dec rsi
+    jmp .Conditional_2
+
+.StopWhile_2:
+
+    pop rsi
+    pop rdi
+    pop rbx
+    pop rdx
+    pop rax
+
+    ret
+
+.ZeroStarted:
+; Выводи нули, пока регистры rbx и rsi не станут равны, потом просто выведи число
+
+    cmp rcx, BUFFER_LEN - 1
+    jae .BufferEndZeroStarted
+
+.ContinueZeroStarted:
+    mov word [Buffer + rcx], '0.'               ; The number started with '0.'
+    add rcx, 2
+
+.Conditional_ZeroStarted:
+    cmp rsi, rbx
+    je .StopWhile_ZeroStarted
+
+.While_ZeroStarted:
+    xor rax, rax
+    call DigitToStr
+    dec rbx
+    jmp .Conditional_ZeroStarted
+
+.StopWhile_ZeroStarted:
+
+    jmp .Conditional_2
+
+.BufferEndZeroStarted:
+    push rsi
+    call PrintBuffer
+    pop rsi
+    jmp .ContinueZeroStarted
+
+.RSImoreRBX:
+; Print numbers of RAX until RBX = RSI. Then put '.' and print other numbers
+
+.Conditional_RBX:
+    cmp rsi, rbx
+    je .StopWhile_RBX
+
+.While_RBX:
+    pop rax
+    call DigitToStr
+    dec rsi
+    jmp .Conditional_RBX
+
+.StopWhile_RBX:
+
+    cmp rcx, BUFFER_LEN
+    je .BufferEndRSImoreRBX
+
+.ContinueRSImoreRBX:
+    mov byte [Buffer + rcx], '.'
+    inc rcx
+    jmp .Conditional_2
+
+.BufferEndRSImoreRBX:
+    push rsi
+    call PrintBuffer
+    pop rsi
+    jmp .ContinueRSImoreRBX
+
+;---------------------------------
+
+
+;---------------------------------
 ; It moves sign to the buffer
 ;
 ; Entry:  RAX, RBX
@@ -426,6 +691,7 @@ CheckSign:
     cmp rax, 1
     je .Minus
     pop rax
+    mov rdx, FLAG_PLUS
 
 .Done:
     ret
@@ -436,9 +702,10 @@ CheckSign:
 
 .Continue:
     pop rax
-    neg eax
+    neg rax
     mov byte [Buffer + rcx],  MINUS
     inc rcx
+    mov rdx, FLAG_MINUS
     jmp .Done
 
 .BufferEnd:
@@ -457,7 +724,7 @@ CheckSign:
 ;
 ; Entry:  RAX, RSI
 ; Exit:   Buffer
-; Destrs: RAX, RDI
+; Destrs: RAX
 ;---------------------------------
 
 ValToStrPowTwo:
@@ -595,7 +862,9 @@ DigitToStr:
     push rax
     push rbx
     push rdx
+    push rsi
     call PrintBuffer
+    pop rsi
     pop rdx
     pop rbx
     pop rax
