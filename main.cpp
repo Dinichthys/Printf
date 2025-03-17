@@ -39,9 +39,10 @@ int main ()
                               "10: %f\n"
                               "11: %f\n"
                               "12: %f\n\n"
+                              "%d %s %x %d%%%c%b\n"
                               , fnum, fnum, fnum, fnum
                               , fnum, fnum, fnum, fnum
-                              , fnum, 'a', fnum, 1.7, 1.23))
+                              , fnum, 'a', fnum, 1.7, 1.23, -1, "love", 3802, 100, 33, 126))
 
     printf ("\nOriginal Printf: \n1: %f\n"
                               "2: %f\n"
@@ -70,13 +71,16 @@ int main ()
                               "%f\n"
                               "%f\n", __INT_MAX__, -__INT_MAX__, 102020290.1092920, 1.23456);
 
-    MyPrintf ("\nMy Printf: \n%f %f %f %f\n", NAN, -NAN, INFINITY, -INFINITY);
+    MyPrintf ("\nMy Printf: \n%f %f %f %f\n"
+                              "%d %s %x %d%%%c%b\n", NAN, -NAN, INFINITY, -INFINITY, -1, "love", 3802, 100, 33, 126);
 
     printf ("\nOriginal Printf: \n%f %f %f %f\n", NAN, -NAN, INFINITY, -INFINITY);
 
     MyPrintf ("\nMy Printf: \n%f \n", 0.00001);
 
     printf ("\nOriginal Printf: \n%f \n", 0.00001);
+
+
 
     return EXIT_SUCCESS;
 }

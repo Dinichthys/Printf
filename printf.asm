@@ -139,7 +139,7 @@ MyPrintf:
 
     push rbp
     mov rbp, rsp                    ; Make the stack frame
-
+// TODO sub rsp, 2*elem_size
     sub rsp, STACK_ELEM_SIZE
     mov LOC_VAR_NUM_PRINTED, 0x0    ; Local variable with number of printed symbols
 
@@ -426,6 +426,8 @@ MyPrintfReal:
     jmp .Conditional
 
 ;---------------------------------
+
+// TODO Подставить вместо макросов то, во что они раскрываются
 
 .JumpTable:
     dq .ArgB
@@ -1010,6 +1012,8 @@ CheckSign:
 ; Destrs: RAX
 ;---------------------------------
 
+// TODO Сделать параметр - маску для вывода одной цифры
+
 ValToStrPowTwo:
 
     push rdi
@@ -1163,6 +1167,8 @@ DigitToStr:
 ; Exit:   Stdout
 ; Destrs: RAX, RDX, RDI
 ;---------------------------------
+
+// TODO Если длина строки меньше длины буфера, то закидываем строку в буфер, иначе выводим отдельным сисколом
 
 PrintArgString:
 
