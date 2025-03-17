@@ -14,6 +14,8 @@ const char* EnumMyPrintfToStr (const enum MyPrintfError error)
 
         CASE_ENUM_ (kInvalidArgumentPrintf);
 
+        CASE_ENUM_ (kSyscallError);
+
         default:
             return "Invalid enum element";
     }

@@ -18,6 +18,7 @@ JUMP_TABLE_FIRST_SYM equ 'b'
 
 DONE_RESULT      equ 0x0
 INVALID_ARGUMENT equ 0x1
+SYSCALL_ERROR    equ 0x2
 
 ADDRESS_LEN_POW_2 equ 0x3
 STACK_ELEM_SIZE   equ 0x8
@@ -473,9 +474,17 @@ PrintBuffer:
     mov rdx, rcx
     add LOC_VAR_NUM_PRINTED, rcx
     syscall
+
+    cmp rax, rdx
+    jne .Error
+
     xor rcx, rcx
 
     ret
+
+.Error:
+    mov rax, SYSCALL_ERROR
+    jmp ExitFunction
 
 ;---------------------------------
 
@@ -1180,9 +1189,16 @@ PrintArgString:
     add LOC_VAR_NUM_PRINTED, rcx
     syscall
 
+    cmp rax, rdx
+    jne .Error
+
     xor rcx, rcx
 
     ret
+
+.Error:
+    mov rax, SYSCALL_ERROR
+    jmp ExitFunction
 
 ;---------------------------------
 
