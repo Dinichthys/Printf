@@ -74,6 +74,10 @@ int main ()
 
     printf ("\nOriginal Printf: \n%f %f %f %f\n", NAN, -NAN, INFINITY, -INFINITY);
 
+    MyPrintf ("\nMy Printf: \n%f \n", 0.00001);
+
+    printf ("\nOriginal Printf: \n%f \n", 0.00001);
+
     return EXIT_SUCCESS;
 }
 
