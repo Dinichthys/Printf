@@ -61,11 +61,14 @@ MANTISSA_ONE dq 0x0010000000000000
 
 EXPONENT equ 0b10000000000
 
-FLAG_NEG_RCX equ 1
 FLAG_DEF_RCX equ 0
+FLAG_NEG_RCX equ 1
 
 FLAG_PLUS  equ 0
 FLAG_MINUS equ 1
+
+FLAG_DEF_VAL  equ 0
+FLAG_SPEC_VAL equ 1                                                             ; Flags of spec or default value of float number
 
 %define LOC_VAR_NUM_PRINTED qword [rbp - STACK_ELEM_SIZE]
 %define LOC_VAR_FLOAT_GOT   qword [rbp - STACK_ELEM_SIZE * 2]
@@ -82,6 +85,11 @@ FLAG_MINUS equ 1
     mov rax, CURRENT_ARGUMENT
     INCREASE_ARGUMENT_INDEX
 %endmacro
+
+INF db 'inf'
+NAN db 'nan'
+
+NAN_EXPONENTA dq 0x7FF0000000000000
 
 %macro SYNCHRONIZATION_ARG_INDEXES 0
     mov rax, ARGUMENT_INDEX
@@ -576,6 +584,10 @@ PrintArgD:
 
 PrintArgF:
 
+    call CheckSpecialFloatMeaning
+    cmp r11, FLAG_SPEC_VAL
+    je .Skip
+
     push rax
     push rbx
     push rdx
@@ -631,17 +643,10 @@ PrintArgF:
     jae .StopRounding
 
     sub rcx, rdx
-    shr rcx, 2
+    shr rcx, 2                              ; RCX - RDX = (old RCX - new RCX) / 3 + (new RDX - old RDX)
     inc rcx
     shr rbx, cl
     sub rax, rcx
-
-; .Round:
-;     shr rbx, 1
-;     inc rdx
-;     dec rax
-;     sub rcx, 3                              ; RCX = 3 * (RAX - 1) = 3 * RAX - 3 = RCX - 3
-;     jmp .ConditionalRoundResult
 
 .StopRounding:
     mov rcx, rax
@@ -665,6 +670,7 @@ PrintArgF:
     pop rbx
     pop rax
 
+.Skip:
     ret
 
 .NegRCX:
@@ -691,6 +697,124 @@ PrintArgF:
     inc rdx
     sub rdx, rbx                             ; DX - Exponent
     jmp .ContinueNegativeNum
+
+;---------------------------------
+
+
+;---------------------------------
+; It checks RAX is INF or NAN
+; If it is NAN or INF this func will
+; put a flag to R11
+;
+; Entry:  RAX
+; Exit:   Buffer
+; Destrs: RAX, R11
+;---------------------------------
+
+CheckSpecialFloatMeaning:
+
+    push rax
+
+    mov r11, FLAG_DEF_VAL
+    and rax, qword [NAN_EXPONENTA]
+    cmp rax, qword [NAN_EXPONENTA]
+    je .FullExp
+
+.Done:
+    pop rax
+    ret
+
+.FullExp:
+    pop rax
+    push rax
+    shl rax, REGISTER_SIZE - MANTISSA_LEN
+    cmp rax, 0x0
+    je .Infinite
+
+    pop rax
+    push rax
+    shr rax, REGISTER_SIZE - 1
+    cmp rax, 1
+    je .MinusNAN
+
+    cmp rcx, BUFFER_LEN - 3
+    jae .BufferEndPlusNAN
+
+.ContinuePlusNAN:
+    mov ax, word [NAN]
+    mov word [Buffer + rcx], ax                 ; [Buffer + RCX] = 'na'
+    mov al, byte [NAN + 2]
+    mov byte [Buffer + 2 + rcx], al             ; [Buffer + RCX] = 'nan'
+    add rcx, 3
+
+    mov r11, FLAG_SPEC_VAL
+    jmp .Done
+
+.BufferEndPlusNAN:
+    call PrintBuffer
+    jmp .ContinuePlusNAN
+
+.MinusNAN:
+    cmp rcx, BUFFER_LEN - 4
+    jae .BufferEndMinusNAN
+
+.ContinueMinusNAN:
+    mov byte [Buffer + rcx], MINUS              ; [Buffer + RCX] = '-'
+    mov ax, word [NAN]
+    mov word [Buffer + 1 + rcx], ax             ; [Buffer + RCX] = '-na'
+    mov al, byte [NAN + 2]
+    mov byte [Buffer + 3 + rcx], al             ; [Buffer + RCX] = '-nan'
+    add rcx, 4
+
+    mov r11, FLAG_SPEC_VAL
+    jmp .Done
+
+.BufferEndMinusNAN:
+    call PrintBuffer
+    jmp .ContinueMinusNAN
+
+.Infinite:
+    pop rax
+    push rax
+    shr rax, REGISTER_SIZE - 1
+    cmp rax, 1
+    je .MinusINF
+
+    cmp rcx, BUFFER_LEN - 3
+    jae .BufferEndPlusINF
+
+.ContinuePlusINF:
+    mov ax, word [INF]
+    mov word [Buffer + rcx], ax                 ; [Buffer + RCX] = 'in'
+    mov al, byte [INF + 2]
+    mov byte [Buffer + 2 + rcx], al             ; [Buffer + RCX] = 'inf'
+    add rcx, 3
+
+    mov r11, FLAG_SPEC_VAL
+    jmp .Done
+
+.BufferEndPlusINF:
+    call PrintBuffer
+    jmp .ContinuePlusINF
+
+.MinusINF:
+    cmp rcx, BUFFER_LEN - 4
+    jae .BufferEndMinusINF
+
+.ContinueMinusINF:
+    mov byte [Buffer + rcx], MINUS              ; [Buffer + RCX] = '-'
+    mov ax, word [INF]
+    mov word [Buffer + 1 + rcx], ax             ; [Buffer + RCX] = '-in'
+    mov al, byte [INF + 2]
+    mov byte [Buffer + 3 + rcx], al             ; [Buffer + RCX] = '-inf'
+    add rcx, 4
+
+    mov r11, FLAG_SPEC_VAL
+    jmp .Done
+
+.BufferEndMinusINF:
+    call PrintBuffer
+    jmp .ContinueMinusINF
 
 ;---------------------------------
 

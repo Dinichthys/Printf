@@ -1,6 +1,6 @@
 CXX = g++
 
-CXXFLAGS = -g3 -ggdb
+CXXFLAGS = -g3 -ggdb -lm
 
 all: run
 
