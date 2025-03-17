@@ -12,9 +12,9 @@ const char* EnumMyPrintfToStr (const enum MyPrintfError error)
     {
         CASE_ENUM_ (kDonePrintf);
 
-        CASE_ENUM_ (kInvalidArgumentPrintf);
+        CASE_ENUM_ (kInvalidSpecifierPrintf);
 
-        CASE_ENUM_ (kSyscallError);
+        CASE_ENUM_ (kSyscallErrorPrintf);
 
         default:
             return "Invalid enum element";

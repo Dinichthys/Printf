@@ -3,9 +3,9 @@
 
 enum MyPrintfError
 {
-    kDonePrintf             = 0,
-    kInvalidArgumentPrintf  = 1,
-    kSyscallError           = 2
+    kDonePrintf              = 0,
+    kInvalidSpecifierPrintf  = 1,
+    kSyscallErrorPrintf      = 2
 };
 
 extern "C" enum MyPrintfError MyPrintf (const char* const format, ...);

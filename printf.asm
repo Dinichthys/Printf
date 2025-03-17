@@ -16,9 +16,9 @@ JUMP_TABLE_FIRST_SYM equ 'b'
 %define JUMP_TABLE_LEN_FROM_O_TO_S  's'-'o' - 1
 %define JUMP_TABLE_LEN_FROM_S_TO_X  'x'-'s' - 1
 
-DONE_RESULT      equ 0x0
-INVALID_ARGUMENT equ 0x1
-SYSCALL_ERROR    equ 0x2
+DONE_RESULT       equ 0x0
+INVALID_SPECIFIER equ 0x1
+SYSCALL_ERROR     equ 0x2
 
 ADDRESS_LEN_POW_2 equ 0x3
 STACK_ELEM_SIZE   equ 0x8
@@ -249,7 +249,7 @@ MyPrintfReal:
 
 .InvalidArgument:
 
-    mov rax, INVALID_ARGUMENT
+    mov rax, INVALID_SPECIFIER
     jmp .StopPrint
 
 ;-----------------
