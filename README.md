@@ -133,7 +133,7 @@ enum MyPrintfError MyPrintf (const char* const format, ...);
 
             RAX = RCX         // Сохраним первоначальное значение RCX
             RCX = RCX - RDX
-            shr RCX, 4
+            shr RCX, 2
 
             // Воспользуемся приближением
             shr RBX, RCX
