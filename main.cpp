@@ -27,6 +27,10 @@ int main ()
     float fnum = -123.7;
 
     // FILE* out = fopen (s"Output.txt", "w");
+    // if (out == NULL)
+    // {
+    //     fprintf (stderr, "Can't open output file\n");
+    // }
     FILE* out = stdout;
 
     ERROR_HANDLER ( MY_PRINTF (out, "\nMy Printf: \n1: %f\n"
