@@ -9,7 +9,10 @@ enum MyPrintfError
     kInvalidColorPrintf      = 3
 };
 
-extern "C" enum MyPrintfError MyPrintf (const char* const format, ...);
+extern "C" enum MyPrintfError MyPrintf (int fd, const char* const format, ...);
 const char* EnumMyPrintfToStr (const enum MyPrintfError error);
+
+#define MY_PRINTF(FILE, FORMAT, ...) \
+    MyPrintf (fileno (FILE), FORMAT, __VA_ARGS__);
 
 #endif // MYPRINTF_H

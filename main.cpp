@@ -26,7 +26,9 @@ int main ()
 //                                                                          -1, "love", 3802, 100, 33, 127))
     float fnum = -123.7;
 
-    ERROR_HANDLER ( MyPrintf ("\nMy Printf: \n1: %f\n"
+    FILE* out = fopen ("Output.txt", "w");
+
+    ERROR_HANDLER ( MY_PRINTF (out, "\nMy Printf: \n1: %f\n"
                               "2: %f\n"
                               "3: %f\n"
                               "4: %f\n"
@@ -62,7 +64,7 @@ int main ()
                               , fnum, fnum, fnum, fnum
                               , fnum, 'a', fnum, 1.7, 1.23);
 
-    ERROR_HANDLER ( MyPrintf ("\nMy Printf: \n%d\n"
+    ERROR_HANDLER ( MY_PRINTF (out, "\nMy Printf: \n%d\n"
                               "%d\n"
                               "%f\n"
                               "%f\n", __INT_MAX__, -__INT_MAX__, 102020290.1092920, 1.23456))
@@ -72,12 +74,12 @@ int main ()
                               "%f\n"
                               "%f\n", __INT_MAX__, -__INT_MAX__, 102020290.1092920, 1.23456);
 
-    MyPrintf ("\nMy Printf: \n%Cr%f %Cy%f %Cw%f %Cb%f\n"
+    MY_PRINTF (out, "\nMy Printf: \n%Cr%f %Cy%f %Cw%f %Cb%f\n"
                               "%Cg%d %s %x %d%%%c%b\n", NAN, -NAN, INFINITY, -INFINITY, -1, "love", 3802, 100, 33, 126);
 
     printf ("\nOriginal Printf: \n%f %f %f %f\n", NAN, -NAN, INFINITY, -INFINITY);
 
-    MyPrintf ("\nMy Printf: \n%f \n", 0.00001);
+    MY_PRINTF (out, "\nMy Printf: \n%f \n", 0.00001);
 
     printf ("\nOriginal Printf: \n%f \n \e[31m asadnj", 0.00001);
 

@@ -19,6 +19,8 @@ GREEN_ESC_SEQUENCES        db '[32m'
 YELLOW_ESC_SEQUENCES       db '[33m'
 WHITE_ESC_SEQUENCES        db '[37m'
 
+; ESC | COLOR
+;-------------
 ; 30	Black
 ; 31	Red
 ; 32	Green
@@ -109,6 +111,7 @@ FLAG_SPEC_VAL equ 1                                                             
 %define LOC_VAR_NUM_PRINTED qword [rbp - STACK_ELEM_SIZE]
 %define LOC_VAR_FLOAT_GOT   qword [rbp - STACK_ELEM_SIZE * 2]
 %define INCREASE_FLOAT_COUNTER add qword [rbp - STACK_ELEM_SIZE * 2], 8         ; 8 = SizeOf (label)
+%define LOC_FILE_OUT        qword [rbp - STACK_ELEM_SIZE * 3]
 
 %macro ARG_F_GOT_FLOAT_FROM_REG 1
     INCREASE_FLOAT_COUNTER
@@ -173,20 +176,23 @@ MyPrintf:
     push rbp
     mov rbp, rsp                    ; Make the stack frame
 ;// TODO
-    sub rsp, 2 * STACK_ELEM_SIZE
+    sub rsp, 3 * STACK_ELEM_SIZE
     mov LOC_VAR_NUM_PRINTED, 0x0    ; Local variable with number of printed symbols
-
     mov LOC_VAR_FLOAT_GOT, 0x0
+    mov LOC_FILE_OUT, STDOUT
 
     mov r8, rbp
     add r8, STACK_ELEM_SIZE * 2     ; R8 - pointer of the argument
-    mov rsi, qword [r8]             ; Move pointer of string to RSI -
+    mov rsi, qword [r8]
+    mov LOC_FILE_OUT, rsi
+    add r8, STACK_ELEM_SIZE
+    mov rsi, qword [r8]             ; Move pointer of string to RSI
     add r8, STACK_ELEM_SIZE
 
     jmp MyPrintfReal                ; Start real Printf
 
 ExitFunction:
-    add rsp, STACK_ELEM_SIZE * 2
+    add rsp, STACK_ELEM_SIZE * 3
     mov rsp, rbp
 
     pop rbp
@@ -247,6 +253,9 @@ MyPrintfReal:
     jmp ExitFunction
 
 .LastPrintBuffer:
+    cmp LOC_FILE_OUT, STDOUT
+    jne .SkipPrintLastColor
+
     cmp rcx, BUFFER_LEN - 5                       ; 5 = \e[30m
     je .PreLastPrintBuff
 
@@ -264,6 +273,12 @@ MyPrintfReal:
 .PreLastPrintBuff:
     call PrintBuffer
     jmp .ContinueLastPrintBuff
+
+.SkipPrintLastColor:
+    test rcx, rcx
+    je .MovDoneResult
+    call PrintBuffer
+    jmp .MovDoneResult
 
 ;---------------------------------
 
@@ -294,6 +309,9 @@ MyPrintfReal:
 ;---------------------------------
 
 .PrintColor:
+    cmp LOC_FILE_OUT, STDOUT
+    jne .SkipPrintColor
+
     inc rsi
     xor rax, rax
     mov al, byte [rsi]
@@ -305,6 +323,10 @@ MyPrintfReal:
     add rax, .ColorJumpTable
     mov rax, [rax]
     jmp rax
+
+.SkipPrintColor:
+    add rsi, 2
+    jmp .Conditional
 
 ;---------------------
 
@@ -569,7 +591,7 @@ MyPrintfReal:
 
 PrintBuffer:
     mov rax, WRITE_FUNC
-    mov rdi, STDOUT         ; Make parameters of syscall
+    mov rdi, LOC_FILE_OUT         ; Make parameters of syscall
     mov rsi, Buffer
     mov rdx, rcx
     add LOC_VAR_NUM_PRINTED, rcx
@@ -1303,7 +1325,7 @@ PrintArgString:
     pop rsi
 
     mov rax, WRITE_FUNC
-    mov rdi, STDOUT         ; Make parameters of syscall
+    mov rdi, LOC_FILE_OUT         ; Make parameters of syscall
     sub rsi, rcx
     mov rdx, rcx
     add LOC_VAR_NUM_PRINTED, rcx
