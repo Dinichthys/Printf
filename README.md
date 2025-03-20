@@ -180,11 +180,11 @@ enum MyPrintfError MyPrintf (int fd, const char* const format, ...);
 
 | Символ для спецификатора | Цвет, который он обозначает
 | :---:                    | :---:
-| b                        | <font style="color: black">  Чёрный  ⬤</font>
-| g                        | <font style="color: green">  Зелёный 🟢</font>
-| r                        | <font style="color: red">    Красный 🔴</font>
-| w                        | <font style="color: grey">   Белый   ◯ </font>
-| y                        | <font style="color: yellow"> Жёлтый  🟡</font>
+| b                        | <p style="color: black">  Чёрный  ⬤</p>
+| g                        | <p style="color: green">  Зелёный 🟢</p>
+| r                        | <p style="color: red">    Красный 🔴</p>
+| w                        | <p style="color: grey">   Белый   ◯</p>
+| y                        | <p style="color: yellow"> Жёлтый  🟡</p>
 
 Пример:
 
