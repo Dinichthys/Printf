@@ -180,11 +180,26 @@ enum MyPrintfError MyPrintf (int fd, const char* const format, ...);
 
 | Символ для спецификатора | Цвет, который он обозначает
 | :---:                    | :---:
-| b                        | <span style="color: black">  Чёрный  </span>
-| g                        | <span style="color: green">  Зелёный </span>
-| r                        | <span style="color: red">    Красный </span>
-| w                        | <span style="color: grey">   Белый   </span>
-| y                        | <span style="color: yellow"> Жёлтый  </span>
+| b                        | <span style="color: black">  Чёрный  </span> `#ffffff`
+| g                        | <span style="color: green">  Зелёный </span> `#ffffff`
+| r                        | <span style="color: red">    Красный </span> `#ffffff`
+| w                        | <span style="color: grey">   Белый   </span> `#ffffff`
+| y                        | <span style="color: yellow"> Жёлтый  </span> `#ffffff`
+
+Пример:
+
+Вызов функции:
+``` C
+    MY_PRINTF (out, "\nMy Printf: \n%Cr%f %Cy%f %Cw%f %Cb%f\n"
+                              "%Cg%d %s %x %d%%%c%b\n",
+                              NAN, -NAN, INFINITY, -INFINITY,
+                              -1, "love", 3802, 100, 33, 126);
+```
+
+Выводит:
+
+![alt text](data/ColorPrint.png)
+
 
 ## Сравнение со стандартным printf
 

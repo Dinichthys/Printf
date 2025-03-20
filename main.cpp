@@ -26,7 +26,8 @@ int main ()
 //                                                                          -1, "love", 3802, 100, 33, 127))
     float fnum = -123.7;
 
-    FILE* out = fopen ("Output.txt", "w");
+    // FILE* out = fopen (s"Output.txt", "w");
+    FILE* out = stdout;
 
     ERROR_HANDLER ( MY_PRINTF (out, "\nMy Printf: \n1: %f\n"
                               "2: %f\n"
@@ -81,7 +82,7 @@ int main ()
 
     MY_PRINTF (out, "\nMy Printf: \n%f \n", 0.00001);
 
-    printf ("\nOriginal Printf: \n%f \n \e[31m asadnj", 0.00001);
+    printf ("\nOriginal Printf: \n%f \n", 0.00001);
 
 
 
