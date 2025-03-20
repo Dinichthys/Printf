@@ -218,3 +218,5 @@ enum MyPrintfError MyPrintf (int fd, const char* const format, ...);
 | `kDonePrintf`             | 0                   | Корректное завершение функции   |
 | `kInvalidSpecifierPrintf` | 1                   | В форматной строке был использован неизвестный спецификатор   |
 | `kSyscallErrorPrintf`     | 2                   | При вызове `syscall` для вывода буфера произошла ошибка   |
+| `kInvalidColorPrintf`     | 3                   | Неверный спецификатор цвета   |
+
