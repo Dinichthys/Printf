@@ -39,6 +39,7 @@ int main ()
                               "10: %f\n"
                               "11: %f\n"
                               "12: %f\n\n"
+                              "%Cr\n\n"
                               "%d %s %x %d%%%c%b\n"
                               , fnum, fnum, fnum, fnum
                               , fnum, fnum, fnum, fnum
@@ -71,14 +72,14 @@ int main ()
                               "%f\n"
                               "%f\n", __INT_MAX__, -__INT_MAX__, 102020290.1092920, 1.23456);
 
-    MyPrintf ("\nMy Printf: \n%f %f %f %f\n"
-                              "%d %s %x %d%%%c%b\n", NAN, -NAN, INFINITY, -INFINITY, -1, "love", 3802, 100, 33, 126);
+    MyPrintf ("\nMy Printf: \n%Cr%f %Cy%f %Cw%f %Cb%f\n"
+                              "%Cg%d %s %x %d%%%c%b\n", NAN, -NAN, INFINITY, -INFINITY, -1, "love", 3802, 100, 33, 126);
 
     printf ("\nOriginal Printf: \n%f %f %f %f\n", NAN, -NAN, INFINITY, -INFINITY);
 
     MyPrintf ("\nMy Printf: \n%f \n", 0.00001);
 
-    printf ("\nOriginal Printf: \n%f \n", 0.00001);
+    printf ("\nOriginal Printf: \n%f \n \e[31m asadnj", 0.00001);
 
 
 

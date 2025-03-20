@@ -8,8 +8,42 @@ BUFFER_LEN equ 0xFF
 
 NUMBER_ARGS_IN_REGS equ 6
 
-END_SYMBOL           equ 0x0
-ARG_SYMBOL           equ '%'
+END_SYMBOL                 equ 0x0
+ARG_SYMBOL                 equ '%'
+COLOR_SYMBOL               equ 'C'
+COLOR_JUMP_TABLE_FIRST_SYM equ 'b'
+ESC_SYM                    equ 27               ; \e
+BLACK_ESC_SEQUENCES        db '[30m'
+RED_ESC_SEQUENCES          db '[31m'
+GREEN_ESC_SEQUENCES        db '[32m'
+YELLOW_ESC_SEQUENCES       db '[33m'
+WHITE_ESC_SEQUENCES        db '[37m'
+
+; 30	Black
+; 31	Red
+; 32	Green
+; 33	Yellow
+; 37	White
+
+%macro CASE_COLOR_PRINTED 1
+.Color%1:
+    cmp rcx, BUFFER_LEN - 5                       ; 5 = \e[30m
+    je .PrintBuffColor%1
+
+.ContinueColor%1:
+    mov byte [Buffer + rcx], ESC_SYM
+    inc rcx
+    mov eax, dword [%1_ESC_SEQUENCES]
+    mov dword [Buffer + rcx], eax
+    add rcx, 4
+    jmp .Conditional
+
+.PrintBuffColor%1:
+    call PrintBuffer
+    jmp .ContinueColor%1
+
+%endmacro
+
 JUMP_TABLE_FIRST_SYM equ 'b'
 %define JUMP_TABLE_LEN_FROM_F_TO_N  'n'-'f' - 1
 %define JUMP_TABLE_LEN_FROM_N_TO_O  'o'-'n' - 1
@@ -19,6 +53,7 @@ JUMP_TABLE_FIRST_SYM equ 'b'
 DONE_RESULT       equ 0x0
 INVALID_SPECIFIER equ 0x1
 SYSCALL_ERROR     equ 0x2
+INVALID_COLOR     equ 0x3
 
 ADDRESS_LEN_POW_2 equ 0x3
 STACK_ELEM_SIZE   equ 0x8
@@ -110,7 +145,6 @@ Buffer:
 
 
 ;--------------------------------------------
-
 section .text
 
 global MyPrintf
@@ -125,8 +159,7 @@ global MyPrintf
 ;--------------------------------------------
 
 MyPrintf:
-
-    pop rax                         ; Save returning value
+    pop rax                         ; Save returning address
 
     push r9                         ; Push parameters
     push r8
@@ -139,11 +172,10 @@ MyPrintf:
 
     push rbp
     mov rbp, rsp                    ; Make the stack frame
-// TODO sub rsp, 2*elem_size
-    sub rsp, STACK_ELEM_SIZE
+;// TODO
+    sub rsp, 2 * STACK_ELEM_SIZE
     mov LOC_VAR_NUM_PRINTED, 0x0    ; Local variable with number of printed symbols
 
-    sub rsp, STACK_ELEM_SIZE
     mov LOC_VAR_FLOAT_GOT, 0x0
 
     mov r8, rbp
@@ -206,8 +238,7 @@ MyPrintfReal:
 ;---------------------------------
 
 .Done:
-    cmp rcx, 0x0
-    jne .LastPrintBuffer
+    jmp .LastPrintBuffer
 
 .MovDoneResult:
     mov rax, DONE_RESULT
@@ -216,10 +247,23 @@ MyPrintfReal:
     jmp ExitFunction
 
 .LastPrintBuffer:
+    cmp rcx, BUFFER_LEN - 5                       ; 5 = \e[30m
+    je .PreLastPrintBuff
+
+.ContinueLastPrintBuff:
+    mov byte [Buffer + rcx], ESC_SYM
+    inc rcx
+    mov eax, dword [BLACK_ESC_SEQUENCES]
+    mov dword [Buffer + rcx], eax
+    add rcx, 4
     push rsi
     call PrintBuffer
     pop rsi
     jmp .MovDoneResult
+
+.PreLastPrintBuff:
+    call PrintBuffer
+    jmp .ContinueLastPrintBuff
 
 ;---------------------------------
 
@@ -234,6 +278,8 @@ MyPrintfReal:
 
     cmp byte [rsi], ARG_SYMBOL
     je .PrintChar
+    cmp byte [rsi], COLOR_SYMBOL
+    je .PrintColor
     xor rax, rax
     mov al, byte [rsi]
     inc rsi
@@ -244,6 +290,58 @@ MyPrintfReal:
     add rax, .JumpTable
     mov rax, [rax]
     jmp rax
+
+;---------------------------------
+
+.PrintColor:
+    inc rsi
+    xor rax, rax
+    mov al, byte [rsi]
+    inc rsi
+    sub rax, COLOR_JUMP_TABLE_FIRST_SYM
+
+    shl rax, QWORD_LEN
+
+    add rax, .ColorJumpTable
+    mov rax, [rax]
+    jmp rax
+
+;---------------------
+
+    CASE_COLOR_PRINTED BLACK
+
+;---------------------
+
+    CASE_COLOR_PRINTED GREEN
+
+;---------------------
+
+    CASE_COLOR_PRINTED RED
+
+;---------------------
+
+    CASE_COLOR_PRINTED WHITE
+
+;---------------------
+
+    CASE_COLOR_PRINTED YELLOW
+
+;---------------------
+
+.ColorJumpTable:
+    dq .ColorBLACK
+    dq 'g'-'b'-1 dup (.InvalidColor)
+    dq .ColorGREEN
+    dq 'r'-'g'-1 dup (.InvalidColor)
+    dq .ColorRED
+    dq 'w'-'r'-1 dup (.InvalidColor)
+    dq .ColorWHITE
+    dq 'y'-'w'-1 dup (.InvalidColor)
+    dq .ColorYELLOW
+
+.InvalidColor:
+    mov rax, INVALID_COLOR
+    jmp .StopPrint
 
 ;---------------------------------
 
@@ -427,7 +525,7 @@ MyPrintfReal:
 
 ;---------------------------------
 
-// TODO Подставить вместо макросов то, во что они раскрываются
+;// TODO Подставить вместо макросов то, во что они раскрываются
 
 .JumpTable:
     dq .ArgB
@@ -435,13 +533,13 @@ MyPrintfReal:
     dq .ArgD
     dq .InvalidArgument                                     ; %e
     dq .ArgF
-    dq JUMP_TABLE_LEN_FROM_F_TO_N dup (.InvalidArgument)
+    dq 'n'-'f'-1 dup (.InvalidArgument)
     dq .ArgN
-    dq JUMP_TABLE_LEN_FROM_N_TO_O dup (.InvalidArgument)
+    dq 'o'-'n'-1 dup (.InvalidArgument)
     dq .ArgO
-    dq JUMP_TABLE_LEN_FROM_O_TO_S dup (.InvalidArgument)
+    dq 's'-'o'-1 dup (.InvalidArgument)
     dq .ArgS
-    dq JUMP_TABLE_LEN_FROM_S_TO_X dup (.InvalidArgument)
+    dq 'x'-'s'-1 dup (.InvalidArgument)
     dq .ArgX
 
 ;---------------------------------
@@ -873,6 +971,9 @@ PrintNumber:
     jae .ZeroStarted                            ; RBX more than length of RAX so number will looks like '0.etc'
     jmp .RSImoreRBX
 
+.ContinueFunc:
+    mov rdi, FLAG_END_NUMBER
+
 .Conditional_2:
     test rsi, rsi
     je .StopWhile_2
@@ -915,7 +1016,7 @@ PrintNumber:
 
 .StopWhile_ZeroStarted:
 
-    jmp .Conditional_2
+    jmp .ContinueFunc
 
 .BufferEndZeroStarted:
     push rsi
@@ -944,7 +1045,7 @@ PrintNumber:
 .ContinueRSImoreRBX:
     mov byte [Buffer + rcx], '.'
     inc rcx
-    jmp .Conditional_2
+    jmp .ContinueFunc
 
 .BufferEndRSImoreRBX:
     push rsi
@@ -1012,7 +1113,7 @@ CheckSign:
 ; Destrs: RAX
 ;---------------------------------
 
-// TODO Сделать параметр - маску для вывода одной цифры
+;// TODO Сделать параметр - маску для вывода одной цифры
 
 ValToStrPowTwo:
 
@@ -1168,15 +1269,17 @@ DigitToStr:
 ; Destrs: RAX, RDX, RDI
 ;---------------------------------
 
-// TODO Если длина строки меньше длины буфера, то закидываем строку в буфер, иначе выводим отдельным сисколом
+;// TODO Если длина строки меньше длины буфера, то закидываем строку в буфер, иначе выводим отдельным сисколом
 
 PrintArgString:
 
-    push rsi
-
-    call PrintBuffer
-
-    pop rsi
+    push rcx
+    xor rcx, rcx
+;     push rsi
+;
+;     call PrintBuffer
+;
+;     pop rsi
 
 .Conditional:
     cmp byte [rsi], END_SYMBOL
@@ -1188,6 +1291,17 @@ PrintArgString:
     jmp .Conditional
 
 .ExitWhile:
+
+    cmp rcx, BUFFER_LEN
+    jbe .CopyToBuffer
+
+    mov r10, rcx
+    pop rcx
+    push rsi
+    call PrintBuffer
+    mov rcx, r10
+    pop rsi
+
     mov rax, WRITE_FUNC
     mov rdi, STDOUT         ; Make parameters of syscall
     sub rsi, rcx
@@ -1199,13 +1313,40 @@ PrintArgString:
     jne .Error
 
     xor rcx, rcx
-
+.Stop:
     ret
 
 .Error:
     mov rax, SYSCALL_ERROR
     jmp ExitFunction
 
+.CopyToBuffer:
+    pop rdi
+    mov rdx, BUFFER_LEN
+    sub rdx, rdi
+    sub rsi, rcx
+    cmp rdx, rcx
+    jb .PrintBuffer
+
+    mov rcx, rdi
+
+.CondCopyToBuff:
+    cmp byte [rsi], END_SYMBOL
+    je .Stop
+
+.WhileCopyToBuff:
+    mov al, byte [rsi]
+    mov byte [Buffer + rcx], al
+    inc rsi
+    inc rcx
+    jmp .CondCopyToBuff
+
+
+.PrintBuffer:
+    push rsi
+    call PrintBuffer
+    pop rsi
+    jmp .CondCopyToBuff
 ;---------------------------------
 
 ;--------------------------------------------
