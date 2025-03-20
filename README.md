@@ -196,7 +196,7 @@ enum MyPrintfError MyPrintf (int fd, const char* const format, ...);
                               -1, "love", 3802, 100, 33, 126);
 ```
 
-Выводит:
+Вывод:
 
 ![alt text](data/ColorPrint.png)
 
