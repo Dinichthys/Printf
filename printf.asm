@@ -10,9 +10,10 @@ NUMBER_ARGS_IN_REGS equ 6
 
 END_SYMBOL                 equ 0x0
 ARG_SYMBOL                 equ '%'
-COLOR_SYMBOL               equ 'C'
+COLOR_SYMBOL               equ '#'
 COLOR_JUMP_TABLE_FIRST_SYM equ 'b'
 ESC_SYM                    equ 27               ; \e
+
 BLACK_ESC_SEQUENCES        db '[30m'
 RED_ESC_SEQUENCES          db '[31m'
 GREEN_ESC_SEQUENCES        db '[32m'
@@ -30,7 +31,7 @@ WHITE_ESC_SEQUENCES        db '[37m'
 %macro CASE_COLOR_PRINTED 1
 .Color%1:
     cmp rcx, BUFFER_LEN - 5                       ; 5 = \e[30m
-    je .PrintBuffColor%1
+    jae .PrintBuffColor%1
 
 .ContinueColor%1:
     mov byte [Buffer + rcx], ESC_SYM
@@ -43,6 +44,52 @@ WHITE_ESC_SEQUENCES        db '[37m'
 .PrintBuffColor%1:
     call PrintBuffer
     jmp .ContinueColor%1
+
+%endmacro
+
+HTML_START db '<html>', 0x0, 0x0
+HTML_START_LEN equ 6
+
+HTML_END db '</html>', 0x0
+HTML_END_LEN equ 7
+
+BLACK_HTML  db '<font color="#000000">', 0x0, 0x0
+GREEN_HTML  db '<font color="#10FF10">', 0x0, 0x0
+RED_HTML    db '<font color="#FF1010">', 0x0, 0x0
+YELLOW_HTML db '<font color="#CCCC10">', 0x0, 0x0
+WHITE_HTML  db '<font color="#E0E0E0">', 0x0, 0x0
+
+HTML_FONT_COLOR_LEN equ 22
+
+END_COLOR_HTML db '</font>', 0x0, 0x0
+END_COLOR_HTML_LEN equ 7
+
+%macro HTML_CASE_COLOR_PRINTED 1
+.HTMLColor%1:
+    cmp rcx, BUFFER_LEN - HTML_FONT_COLOR_LEN - END_COLOR_HTML_LEN
+    jae .PrintBuffHTMLColor%1
+
+.ContinueHTMLColor%1:
+    mov rax, qword [END_COLOR_HTML]
+    mov qword [Buffer + rcx], rax
+    add rcx, END_COLOR_HTML_LEN
+
+    mov rax, qword [%1_HTML]
+    mov qword [Buffer + rcx], rax
+    add rcx, 8
+
+    mov rax, qword [%1_HTML + 8]
+    mov qword [Buffer + rcx], rax
+    add rcx, 8
+
+    mov rax, qword [%1_HTML + 16]
+    mov qword [Buffer + rcx], rax
+    add rcx, 6                                          ; HTML_FONT_COLOR_LEN = 22 = 8 + 8 + 6
+    jmp .Conditional
+
+.PrintBuffHTMLColor%1:
+    call PrintBuffer
+    jmp .ContinueHTMLColor%1
 
 %endmacro
 
@@ -144,6 +191,8 @@ Alphabet:
 Buffer:
     db BUFFER_LEN dup (0)
 
+SaveZoneAfterBuffer:
+    db 0xFF dup (0)
 ;--------------------------------------------
 
 
@@ -217,6 +266,10 @@ ExitFunction:
 MyPrintfReal:
     xor rcx, rcx
 
+    cmp LOC_FILE_OUT, STDOUT
+    jne .StartHtml
+
+.ReturnStartHtml:
     START_INDEXING_FLOAT_ARGUMENTS
 
 ;---------------------------------
@@ -229,6 +282,8 @@ MyPrintfReal:
     cmp byte [rsi], ARG_SYMBOL
     je .PrintArgument                           ; Check if an argument is needed
 
+    cmp byte [rsi], COLOR_SYMBOL
+    je .PrintColor
 .PrintChar:
     cmp rcx, BUFFER_LEN
     je .BufferEnd
@@ -252,12 +307,35 @@ MyPrintfReal:
 .StopPrint:
     jmp ExitFunction
 
+;---------------------------------
+
+.StartHtml:
+    mov rax, qword [HTML_START]
+    mov qword [Buffer + rcx], rax
+    add rcx, HTML_START_LEN
+
+    mov rax, qword [BLACK_HTML]
+    mov qword [Buffer + rcx], rax
+    add rcx, 8
+
+    mov rax, qword [BLACK_HTML + 8]
+    mov qword [Buffer + rcx], rax
+    add rcx, 8
+
+    mov rax, qword [BLACK_HTML + 16]
+    mov qword [Buffer + rcx], rax                       ; Buffer = "<html> <font color="#101010">
+    add rcx, 6                                          ; HTML_FONT_COLOR_LEN = 22 = 8 + 8 + 6
+
+    jmp .ReturnStartHtml
+
+;---------------------------------
+
 .LastPrintBuffer:
     cmp LOC_FILE_OUT, STDOUT
-    jne .SkipPrintLastColor
+    jne .PrintLastColorFile
 
     cmp rcx, BUFFER_LEN - 5                       ; 5 = \e[30m
-    je .PreLastPrintBuff
+    jae .PreLastPrintBuff
 
 .ContinueLastPrintBuff:
     mov byte [Buffer + rcx], ESC_SYM
@@ -274,11 +352,26 @@ MyPrintfReal:
     call PrintBuffer
     jmp .ContinueLastPrintBuff
 
-.SkipPrintLastColor:
-    test rcx, rcx
-    je .MovDoneResult
+;-----------------------
+
+.PrintLastColorFile:
+    cmp rcx, BUFFER_LEN - HTML_END_LEN - HTML_FONT_COLOR_LEN
+    jae .PreLastPrintBuffFile
+
+.ContinueLastPrintBuffFile:
+    mov rax, qword [END_COLOR_HTML]
+    mov qword [Buffer + rcx], rax
+    add rcx, END_COLOR_HTML_LEN
+
+    mov rax, qword [HTML_END]
+    mov qword [Buffer + rcx], rax
+    add rcx, HTML_END_LEN
     call PrintBuffer
     jmp .MovDoneResult
+
+.PreLastPrintBuffFile:
+    call PrintBuffer
+    jmp .ContinueLastPrintBuffFile
 
 ;---------------------------------
 
@@ -293,8 +386,6 @@ MyPrintfReal:
 
     cmp byte [rsi], ARG_SYMBOL
     je .PrintChar
-    cmp byte [rsi], COLOR_SYMBOL
-    je .PrintColor
     xor rax, rax
     mov al, byte [rsi]
     inc rsi
@@ -310,7 +401,7 @@ MyPrintfReal:
 
 .PrintColor:
     cmp LOC_FILE_OUT, STDOUT
-    jne .SkipPrintColor
+    jne .FilePrintColor
 
     inc rsi
     xor rax, rax
@@ -324,9 +415,18 @@ MyPrintfReal:
     mov rax, [rax]
     jmp rax
 
-.SkipPrintColor:
-    add rsi, 2
-    jmp .Conditional
+.FilePrintColor:
+    inc rsi
+    xor rax, rax
+    mov al, byte [rsi]
+    inc rsi
+    sub rax, COLOR_JUMP_TABLE_FIRST_SYM
+
+    shl rax, QWORD_LEN
+
+    add rax, .ColorJumpTableHTML
+    mov rax, [rax]
+    jmp rax
 
 ;---------------------
 
@@ -360,6 +460,39 @@ MyPrintfReal:
     dq .ColorWHITE
     dq 'y'-'w'-1 dup (.InvalidColor)
     dq .ColorYELLOW
+
+;---------------------
+
+    HTML_CASE_COLOR_PRINTED BLACK
+
+;---------------------
+
+    HTML_CASE_COLOR_PRINTED GREEN
+
+;---------------------
+
+    HTML_CASE_COLOR_PRINTED RED
+
+;---------------------
+
+    HTML_CASE_COLOR_PRINTED WHITE
+
+;---------------------
+
+    HTML_CASE_COLOR_PRINTED YELLOW
+
+;---------------------
+
+.ColorJumpTableHTML:
+    dq .HTMLColorBLACK
+    dq 'g'-'b'-1 dup (.InvalidColor)
+    dq .HTMLColorGREEN
+    dq 'r'-'g'-1 dup (.InvalidColor)
+    dq .HTMLColorRED
+    dq 'w'-'r'-1 dup (.InvalidColor)
+    dq .HTMLColorWHITE
+    dq 'y'-'w'-1 dup (.InvalidColor)
+    dq .HTMLColorYELLOW
 
 .InvalidColor:
     mov rax, INVALID_COLOR
@@ -590,12 +723,16 @@ MyPrintfReal:
 ;---------------------------------
 
 PrintBuffer:
+    push rsi
+
     mov rax, WRITE_FUNC
     mov rdi, LOC_FILE_OUT         ; Make parameters of syscall
     mov rsi, Buffer
     mov rdx, rcx
     add LOC_VAR_NUM_PRINTED, rcx
     syscall
+
+    pop rsi
 
     cmp rax, rdx
     jne .Error

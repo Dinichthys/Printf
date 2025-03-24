@@ -26,68 +26,68 @@ int main ()
 //                                                                          -1, "love", 3802, 100, 33, 127))
     float fnum = -123.7;
 
-    // FILE* out = fopen (s"Output.txt", "w");
-    // if (out == NULL)
-    // {
-    //     fprintf (stderr, "Can't open output file\n");
-    // }
-    FILE* out = stdout;
+    FILE* out = fopen ("Output.html", "w");
+    if (out == NULL)
+    {
+        fprintf (stderr, "Can't open output file\n");
+    }
+    // FILE* out = stdout;
 
-    ERROR_HANDLER ( MY_PRINTF (out, "\nMy Printf: \n1: %f\n"
-                              "2: %f\n"
-                              "3: %f\n"
-                              "4: %f\n"
-                              "5: %f\n"
-                              "6: %f\n"
-                              "7: %f\n"
-                              "8: %f\n"
-                              "9: %f\n"
-                              "c: %c\n"
-                              "10: %f\n"
-                              "11: %f\n"
-                              "12: %f\n\n"
-                              "%Cr\n\n"
-                              "%d %s %x %d%%%c%b\n"
-                              , fnum, fnum, fnum, fnum
-                              , fnum, fnum, fnum, fnum
-                              , fnum, 'a', fnum, 1.7, 1.23, -1, "love", 3802, 100, 33, 126))
+//     ERROR_HANDLER ( MY_PRINTF (out, "\nMy Printf: \n1: %f\n"
+//                               "2: %f\n"
+//                               "3: %f\n"
+//                               "4: %f\n"
+//                               "5: %f\n"
+//                               "6: %f\n"
+//                               "7: %f\n"
+//                               "8: %f\n"
+//                               "9: %f\n"
+//                               "c: %c\n"
+//                               "10: %f\n"
+//                               "11: %f\n"
+//                               "12: %f\n\n"
+//                               "\n\n"
+//                               "%d %s %x %d%%%c%b\n"
+//                               , fnum, fnum, fnum, fnum
+//                               , fnum, fnum, fnum, fnum
+//                               , fnum, 'a', fnum, 1.7, 1.23, -1, "love", 3802, 100, 33, 126))
+//
+//     printf ("\nOriginal Printf: \n1: %f\n"
+//                               "2: %f\n"
+//                               "3: %f\n"
+//                               "4: %f\n"
+//                               "5: %f\n"
+//                               "6: %f\n"
+//                               "7: %f\n"
+//                               "8: %f\n"
+//                               "9: %f\n"
+//                               "c: %c\n"
+//                               "10: %f\n"
+//                               "11: %f\n"
+//                               "12: %f\n"
+//                               , fnum, fnum, fnum, fnum
+//                               , fnum, fnum, fnum, fnum
+//                               , fnum, 'a', fnum, 1.7, 1.23);
+//
+//     ERROR_HANDLER ( MY_PRINTF (out, "\nMy Printf: \n%d\n"
+//                               "%d\n"
+//                               "%f\n"
+//                               "%f\n", __INT_MAX__, -__INT_MAX__, 102020290.1092920, 1.23456))
+//
+//     printf ("\nOriginal Printf: \n%d\n"
+//                               "%d\n"
+//                               "%f\n"
+//                               "%f\n", __INT_MAX__, -__INT_MAX__, 102020290.1092920, 1.23456);
 
-    printf ("\nOriginal Printf: \n1: %f\n"
-                              "2: %f\n"
-                              "3: %f\n"
-                              "4: %f\n"
-                              "5: %f\n"
-                              "6: %f\n"
-                              "7: %f\n"
-                              "8: %f\n"
-                              "9: %f\n"
-                              "c: %c\n"
-                              "10: %f\n"
-                              "11: %f\n"
-                              "12: %f\n"
-                              , fnum, fnum, fnum, fnum
-                              , fnum, fnum, fnum, fnum
-                              , fnum, 'a', fnum, 1.7, 1.23);
-
-    ERROR_HANDLER ( MY_PRINTF (out, "\nMy Printf: \n%d\n"
-                              "%d\n"
-                              "%f\n"
-                              "%f\n", __INT_MAX__, -__INT_MAX__, 102020290.1092920, 1.23456))
-
-    printf ("\nOriginal Printf: \n%d\n"
-                              "%d\n"
-                              "%f\n"
-                              "%f\n", __INT_MAX__, -__INT_MAX__, 102020290.1092920, 1.23456);
-
-    MY_PRINTF (out, "\nMy Printf: \n%Cr%f %Cy%f %Cw%f %Cb%f\n"
-                              "%Cg%d %s %x %d%%%c%b\n", NAN, -NAN, INFINITY, -INFINITY, -1, "love", 3802, 100, 33, 126);
-
-    printf ("\nOriginal Printf: \n%f %f %f %f\n", NAN, -NAN, INFINITY, -INFINITY);
-
-    MY_PRINTF (out, "\nMy Printf: \n%f \n", 0.00001);
-
-    printf ("\nOriginal Printf: \n%f \n", 0.00001);
-
+    MY_PRINTF (out, "\nMy Printf: \n#r%f #y%f #w%f #b%f\n"
+                              "#g%d %s %x %d%%%c%b\n", NAN, -NAN, INFINITY, -INFINITY, -1, "love", 3802, 100, 33, 126);
+//
+//     printf ("\nOriginal Printf: \n%f %f %f %f\n", NAN, -NAN, INFINITY, -INFINITY);
+//
+//     MY_PRINTF (out, "\nMy Printf: \n%f \n", 0.00001);
+//
+//     printf ("\nOriginal Printf: \n%f \n", 0.00001);
+//
 
 
     return EXIT_SUCCESS;
