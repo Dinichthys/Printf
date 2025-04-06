@@ -2,3 +2,6 @@ build/
 build.sh
 
 printf_check
+
+Output.txt
+Output.html

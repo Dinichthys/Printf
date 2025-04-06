@@ -1,5 +1,0 @@
-<html><font color="#000000">
-My Printf: 
-</font><font color="#FF1010">nan </font><font color="#CCCC10">-nan </font><font color="#FFFFFF">inf </font><font color="#000000">-inf
-</font><font color="#10FF10">-1 love EDA 100%!1111110
-</font></html>
